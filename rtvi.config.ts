@@ -134,8 +134,14 @@ export const PRESET_ASSISTANTS = [
     voice: "726d5ae5-055f-4c3d-8355-d9677de68937",
     description: "Offer urgent mental health support and guidance during weekends from an AI assistant.",
   },
+  {
+    name: "Employment Support Bot",
+    prompt: `You are an employment support assistant. Provide guidance on dealing with job-related stress, offer tips for job searching, interview preparation, and handling workplace issues.
+    Your responses will be converted to audio. Please avoid using special characters other than '!' or '?'.`,
+    voice: "b7d50908-b17c-442d-ad8d-810c63997ed9",
+    description: "Get support for job-related stress and workplace issues from an AI assistant.",
+  },
 ];
-
 
 export const SUPPORT_SESSIONS = [
   {
