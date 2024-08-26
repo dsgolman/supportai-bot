@@ -8,6 +8,7 @@ import { Button } from "./ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "./ui/card";
 import { Configure } from "./Configure";
 import { useAssistant } from "@/components/assistantContext";
+import { Alert } from "./ui/alert"; // Ensure Alert component is correctly imported
 
 const status_text = {
   idle: "Initializing...",
@@ -18,7 +19,6 @@ const status_text = {
 };
 
 export function PreCall() {
-
   const voiceClient = useVoiceClient();
   const transportState = useVoiceClientTransportState();
 
@@ -28,31 +28,22 @@ export function PreCall() {
 
   const { assistant } = useAssistant();
 
-  if (!assistant) {
-    return null; // Or render a fallback UI
-  }
-  
-  useVoiceClientEvent(
-    VoiceEvent.Error,
-    useCallback((message: VoiceMessage) => {
-      const errorData = message.data as { error: string; fatal: boolean };
-      if (!errorData.fatal) return;
+  // Always call useVoiceClientEvent and useCallback at the top
+  const handleError = useCallback((message: VoiceMessage) => {
+    const errorData = message.data as { error: string; fatal: boolean };
+    if (errorData.fatal) {
       setError(errorData.error);
-    }, [])
-  );
+    }
+  }, []);
+
+  useVoiceClientEvent(VoiceEvent.Error, handleError);
 
   useEffect(() => {
-    console.log("VoiceClient:", voiceClient);
-    console.log("TransportState:", transportState);
-    console.log("AppState:", appState);
-
     if (!voiceClient || appState !== "idle") return;
     voiceClient.initDevices();
   }, [appState, voiceClient]);
 
   useEffect(() => {
-    console.log("Updating appState based on transportState:", transportState);
-
     switch (transportState) {
       case "initialized":
         setAppState("ready");
@@ -76,14 +67,14 @@ export function PreCall() {
       voiceClient.enableMic(false);
       await voiceClient.start();
     } catch (e) {
-      setError((e as VoiceMessage).message || "Unknown error occurred");
+      // setError((e as VoiceMessage).message || "Unknown error occurred");
       voiceClient.disconnect();
     }
   }
 
   if (error) {
     return (
-      <Card shadow className="animate-appear max-w-lg">
+      <Card className="animate-appear max-w-lg">
         <CardContent>
           <Alert intent="danger" title="An error occurred">
             {error}
@@ -96,7 +87,7 @@ export function PreCall() {
   const isReady = appState === "ready";
 
   return (
-    <Card shadow="true" className="animate-appear max-w-lg">
+    <Card className="animate-appear max-w-lg">
       <CardHeader>
         <CardTitle>Configuration</CardTitle>
       </CardHeader>

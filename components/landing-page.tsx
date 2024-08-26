@@ -78,7 +78,7 @@ export function LandingPage() {
             </div>
             <div className="mx-auto grid max-w-5xl items-center gap-6 py-12 lg:grid-cols-3 lg:gap-12">
               <div className="grid gap-1">
-                <UserPlusIcon className="mx-auto h-12 w-12 text-primary" />
+                {/*<UserPlusIcon className="mx-auto h-12 w-12 text-primary" />*/}
                 <h3 className="text-xl font-bold">Peer Support</h3>
                 <p className="text-muted-foreground">Engage with AI-driven peer support tailored to your needs.</p>
                 <Link
@@ -90,7 +90,7 @@ export function LandingPage() {
                 </Link>
               </div>
               <div className="grid gap-1">
-                <GroupIcon className="mx-auto h-12 w-12 text-primary" />
+                {/*<GroupIcon className="mx-auto h-12 w-12 text-primary" />*/}
                 <h3 className="text-xl font-bold">Support Groups</h3>
                 <p className="text-muted-foreground">
                   Participate in virtual support groups for specific mental health concerns with AI facilitation.
@@ -104,7 +104,7 @@ export function LandingPage() {
                 </Link>
               </div>
               <div className="grid gap-1">
-                <AmbulanceIcon className="mx-auto h-12 w-12 text-primary" />
+                {/*<AmbulanceIcon className="mx-auto h-12 w-12 text-primary" />*/}
                 <h3 className="text-xl font-bold">Crisis Intervention</h3>
                 <p className="text-muted-foreground">Immediate AI-supported intervention for mental health crises.</p>
                 <Link
@@ -184,74 +184,74 @@ export function LandingPage() {
 }
 
 
-function AmbulanceIcon(props) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M10 10H6" />
-      <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" />
-      <path d="M19 18h2a1 1 0 0 0 1-1v-3.28a1 1 0 0 0-.684-.948l-1.923-.641a1 1 0 0 1-.578-.502l-1.539-3.076A1 1 0 0 0 16.382 8H14" />
-      <path d="M8 8v4" />
-      <path d="M9 18h6" />
-      <circle cx="17" cy="18" r="2" />
-      <circle cx="7" cy="18" r="2" />
-    </svg>
-  )
-}
+// function AmbulanceIcon(props) {
+//   return (
+//     <svg
+//       {...props}
+//       xmlns="http://www.w3.org/2000/svg"
+//       width="24"
+//       height="24"
+//       viewBox="0 0 24 24"
+//       fill="none"
+//       stroke="currentColor"
+//       strokeWidth="2"
+//       strokeLinecap="round"
+//       strokeLinejoin="round"
+//     >
+//       <path d="M10 10H6" />
+//       <path d="M14 18V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v11a1 1 0 0 0 1 1h2" />
+//       <path d="M19 18h2a1 1 0 0 0 1-1v-3.28a1 1 0 0 0-.684-.948l-1.923-.641a1 1 0 0 1-.578-.502l-1.539-3.076A1 1 0 0 0 16.382 8H14" />
+//       <path d="M8 8v4" />
+//       <path d="M9 18h6" />
+//       <circle cx="17" cy="18" r="2" />
+//       <circle cx="7" cy="18" r="2" />
+//     </svg>
+//   )
+// }
 
-function GroupIcon(props) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M3 7V5c0-1.1.9-2 2-2h2" />
-      <path d="M17 3h2c1.1 0 2 .9 2 2v2" />
-      <path d="M21 17v2c0 1.1-.9 2-2 2h-2" />
-      <path d="M7 21H5c-1.1 0-2-.9-2-2v-2" />
-      <rect width="7" height="5" x="7" y="7" rx="1" />
-      <rect width="7" height="5" x="10" y="12" rx="1" />
-    </svg>
-  )
-}
+// function GroupIcon(props) {
+//   return (
+//     <svg
+//       {...props}
+//       xmlns="http://www.w3.org/2000/svg"
+//       width="24"
+//       height="24"
+//       viewBox="0 0 24 24"
+//       fill="none"
+//       stroke="currentColor"
+//       strokeWidth="2"
+//       strokeLinecap="round"
+//       strokeLinejoin="round"
+//     >
+//       <path d="M3 7V5c0-1.1.9-2 2-2h2" />
+//       <path d="M17 3h2c1.1 0 2 .9 2 2v2" />
+//       <path d="M21 17v2c0 1.1-.9 2-2 2h-2" />
+//       <path d="M7 21H5c-1.1 0-2-.9-2-2v-2" />
+//       <rect width="7" height="5" x="7" y="7" rx="1" />
+//       <rect width="7" height="5" x="10" y="12" rx="1" />
+//     </svg>
+//   )
+// }
 
 
-function UserPlusIcon(props) {
-  return (
-    <svg
-      {...props}
-      xmlns="http://www.w3.org/2000/svg"
-      width="24"
-      height="24"
-      viewBox="0 0 24 24"
-      fill="none"
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
-      <circle cx="9" cy="7" r="4" />
-      <line x1="19" x2="19" y1="8" y2="14" />
-      <line x1="22" x2="16" y1="11" y2="11" />
-    </svg>
-  )
-}
+// function UserPlusIcon(props) {
+//   return (
+//     <svg
+//       {...props}
+//       xmlns="http://www.w3.org/2000/svg"
+//       width="24"
+//       height="24"
+//       viewBox="0 0 24 24"
+//       fill="none"
+//       stroke="currentColor"
+//       strokeWidth="2"
+//       strokeLinecap="round"
+//       strokeLinejoin="round"
+//     >
+//       <path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2" />
+//       <circle cx="9" cy="7" r="4" />
+//       <line x1="19" x2="19" y1="8" y2="14" />
+//       <line x1="22" x2="16" y1="11" y2="11" />
+//     </svg>
+//   )
+// }

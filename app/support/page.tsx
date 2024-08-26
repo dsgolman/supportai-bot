@@ -1,5 +1,3 @@
-// app/support/page.tsx
-
 "use client";
 
 import { useEffect, useRef, useState } from "react";
@@ -19,6 +17,17 @@ import {
 import { SupportGroups } from "@/components/SupportGroups";
 import { PeerCalls } from "@/components/PeerCalls";
 
+// Define types for configuration items
+interface ConfigOption {
+  name: string;
+  value: any; // Use a more specific type if possible
+}
+
+interface ConfigItem {
+  service: string;
+  options: ConfigOption[];
+}
+
 type AssistantData = {
   name: string;
   prompt: string;
@@ -30,21 +39,21 @@ function SupportPageContent() {
   const [voiceClient, setVoiceClient] = useState<DailyVoiceClient | null>(null);
   const voiceClientRef = useRef<DailyVoiceClient | null>(null);
 
-  const updateConfigWithAssistantData = (config: any[], assistantData: any) => {
+  const updateConfigWithAssistantData = (config: ConfigItem[], assistantData: AssistantData): ConfigItem[] => {
     // Clone the config to avoid mutating the original
     const updatedConfig = JSON.parse(JSON.stringify(config));
 
     // Find the relevant configuration items and update them
-    updatedConfig.forEach((item) => {
+    updatedConfig.forEach((item: ConfigItem) => {
       if (item.service === "tts") {
-        item.options.forEach((option: any) => {
+        item.options.forEach((option: ConfigOption) => {
           if (option.name === "voice") {
             option.value = assistantData.voice;
           }
         });
       }
       if (item.service === "llm") {
-        item.options.forEach((option: any) => {
+        item.options.forEach((option: ConfigOption) => {
           if (option.name === "initial_messages") {
             option.value[0].content = assistantData.prompt;
           }
