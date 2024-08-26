@@ -102,7 +102,7 @@ function SupportPageContent() {
           <PeerCalls />
         </>
       ) : (
-        <VoiceClientProvider voiceClient={voiceClient!}>
+        <VoiceClientProvider voiceClient={voiceClientRef.current!}>
           <TooltipProvider>
             <main>
               <div id="app">

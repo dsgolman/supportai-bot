@@ -7,6 +7,7 @@ import { useVoiceClient, useVoiceClientEvent, useVoiceClientTransportState } fro
 import { Button } from "./ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "./ui/card";
 import { Configure } from "./Configure";
+import Session from "./Session";
 import { useAssistant } from "@/components/assistantContext";
 import { Alert } from "./ui/alert"; // Ensure Alert component is correctly imported
 
@@ -54,7 +55,7 @@ export function PreCall() {
         break;
       case "connected":
       case "ready":
-        setAppState("ready");
+        setAppState("connected");
         break;
       default:
         setAppState("idle");
@@ -72,6 +73,10 @@ export function PreCall() {
     }
   }
 
+  async function leave() {
+    await voiceClient.disconnect();
+  }
+
   if (error) {
     return (
       <Card className="animate-appear max-w-lg">
@@ -81,6 +86,18 @@ export function PreCall() {
           </Alert>
         </CardContent>
       </Card>
+    );
+  }
+
+  if (appState === "connected") {
+    return (
+      <div className="flex h-screen items-center justify-center">
+        <Session
+          state={transportState}
+          onLeave={() => leave()}
+          startAudioOff={startAudioOff}
+        />
+      </div>
     );
   }
 
