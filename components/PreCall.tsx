@@ -23,7 +23,10 @@ export function PreCall() {
   const voiceClient = useVoiceClient();
   const transportState = useVoiceClientTransportState();
 
-  const [appState, setAppState] = useState<"idle" | "ready">("idle");
+  const [appState, setAppState] = useState<
+    "idle" | "ready" | "connecting" | "connected"
+  >("idle");
+  
   const [error, setError] = useState<string | null>(null);
   const [startAudioOff, setStartAudioOff] = useState<boolean>(false);
 
