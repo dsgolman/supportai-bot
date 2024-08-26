@@ -5,11 +5,11 @@ import { Ear, Loader2 } from "lucide-react";
 import { VoiceEvent, VoiceMessage } from "realtime-ai";
 import { useVoiceClient, useVoiceClientEvent, useVoiceClientTransportState } from "realtime-ai-react";
 import { Button } from "./ui/button";
-import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "./ui/card";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./ui/card";
 import { Configure } from "./Configure";
 import Session from "./Session";
 import { useAssistant } from "@/components/assistantContext";
-import { Alert } from "./ui/alert"; // Ensure Alert component is correctly imported
+import { Alert } from "./ui/alert";
 
 const status_text = {
   idle: "Initializing...",
@@ -32,7 +32,6 @@ export function PreCall() {
 
   const { assistant } = useAssistant();
 
-  // Always call useVoiceClientEvent and useCallback at the top
   const handleError = useCallback((message: VoiceMessage) => {
     const errorData = message.data as { error: string; fatal: boolean };
     if (errorData.fatal) {
@@ -71,7 +70,6 @@ export function PreCall() {
       voiceClient.enableMic(false);
       await voiceClient.start();
     } catch (e) {
-      // setError((e as VoiceMessage).message || "Unknown error occurred");
       voiceClient.disconnect();
     }
   }
@@ -110,7 +108,10 @@ export function PreCall() {
   return (
     <Card className="animate-appear max-w-lg">
       <CardHeader>
-        <CardTitle>Configuration</CardTitle>
+        <CardTitle>{assistant?.name || "Configuration"}</CardTitle>
+        {assistant?.description && (
+          <CardDescription>{assistant.description}</CardDescription>
+        )}
       </CardHeader>
       <CardContent>
         <div className="flex flex-row gap-2 bg-primary-50 px-4 py-2 md:p-2 text-sm items-center justify-center rounded-md font-medium text-pretty">
