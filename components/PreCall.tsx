@@ -26,7 +26,7 @@ export function PreCall() {
   const [appState, setAppState] = useState<
     "idle" | "ready" | "connecting" | "connected"
   >("idle");
-  
+
   const [error, setError] = useState<string | null>(null);
   const [startAudioOff, setStartAudioOff] = useState<boolean>(false);
 
@@ -77,6 +77,7 @@ export function PreCall() {
   }
 
   async function leave() {
+    if (!voiceClient) return;
     await voiceClient.disconnect();
   }
 
