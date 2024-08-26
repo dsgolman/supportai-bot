@@ -12,7 +12,7 @@ interface SessionProps {
 }
 
 export function Session({ state, onLeave, startAudioOff = false }: SessionProps) {
-  const voiceClient = useVoiceClient();
+  const voiceClient = useVoiceClient()!;
   const [hasStarted, setHasStarted] = useState<boolean>(false);
 
  useEffect(() => {
