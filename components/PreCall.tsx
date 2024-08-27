@@ -81,9 +81,9 @@ export function PreCall() {
 
   if (error) {
     return (
-      <Card className="animate-appear max-w-lg">
+      <Card id="error-card" className="animate-appear max-w-lg">
         <CardContent>
-          <Alert intent="danger" title="An error occurred">
+          <Alert intent="danger" title="An error occurred" id="error-alert">
             {error}
           </Alert>
         </CardContent>
@@ -93,11 +93,12 @@ export function PreCall() {
 
   if (appState === "connected") {
     return (
-      <div className="flex h-screen items-center justify-center">
+      <div className="flex h-screen items-center justify-center" id="session-container">
         <Session
           state={transportState}
           onLeave={() => leave()}
           startAudioOff={startAudioOff}
+          id="session-component"
         />
       </div>
     );
@@ -106,15 +107,15 @@ export function PreCall() {
   const isReady = appState === "ready";
 
   return (
-    <Card className="animate-appear max-w-lg">
-      <CardHeader>
-        <CardTitle>{assistant?.name || "Configuration"}</CardTitle>
+    <Card id="precall-card" className="animate-appear max-w-lg">
+      <CardHeader id="card-header">
+        <CardTitle id="card-title">{assistant?.name || "Configuration"}</CardTitle>
         {assistant?.description && (
-          <CardDescription>{assistant.description}</CardDescription>
+          <CardDescription id="card-description">{assistant.description}</CardDescription>
         )}
       </CardHeader>
-      <CardContent>
-        <div className="flex flex-row gap-2 bg-primary-50 px-4 py-2 md:p-2 text-sm items-center justify-center rounded-md font-medium text-pretty">
+      <CardContent id="card-content">
+        <div className="flex flex-row gap-2 bg-primary-50 px-4 py-2 md:p-2 text-sm items-center justify-center rounded-md font-medium text-pretty" id="status-info">
           <Ear className="size-7 md:size-5 text-primary-400" />
           Works best in a quiet environment with a good internet.
         </div>
@@ -122,13 +123,15 @@ export function PreCall() {
           startAudioOff={startAudioOff}
           handleStartAudioOff={() => setStartAudioOff(!startAudioOff)}
           state={appState}
+          id="configure-component"
         />
       </CardContent>
-      <CardFooter>
+      <CardFooter id="card-footer">
         <Button
           key="start"
           onClick={() => start()}
           disabled={!isReady}
+          id="start-button"
         >
           {!isReady && <Loader2 className="animate-spin" />}
           {status_text[transportState as keyof typeof status_text]}
