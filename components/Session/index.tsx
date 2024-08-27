@@ -42,7 +42,7 @@ export function Session({ state, onLeave, startAudioOff = false }: SessionProps)
     }, [state, onLeave]);
 
   return (
-    <Card className="flex flex-col h-screen">
+    <Card className="flex flex-col h-screen" id="session-component">
       <CardHeader>
         <CardTitle>Audio Session</CardTitle>
       </CardHeader>

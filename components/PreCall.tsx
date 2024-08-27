@@ -98,7 +98,6 @@ export function PreCall() {
           state={transportState}
           onLeave={() => leave()}
           startAudioOff={startAudioOff}
-          id="session-component"
         />
       </div>
     );
@@ -123,7 +122,6 @@ export function PreCall() {
           startAudioOff={startAudioOff}
           handleStartAudioOff={() => setStartAudioOff(!startAudioOff)}
           state={appState}
-          id="configure-component"
         />
       </CardContent>
       <CardFooter id="card-footer">
