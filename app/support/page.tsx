@@ -91,8 +91,8 @@ function SupportPageContent() {
       timeout: BOT_READY_TIMEOUT,
     });
 
-    const llmHelper = new LLMHelper({});
-    voiceClient.registerHelper("llm", llmHelper);
+    // const llmHelper = new LLMHelper({});
+    // voiceClient.registerHelper("llm", llmHelper);
 
     voiceClientRef.current = voiceClient;
     setVoiceClient(voiceClient); 
