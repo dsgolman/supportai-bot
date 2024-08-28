@@ -65,9 +65,12 @@ export function LandingPage() {
                       <h3 className="text-xl font-semibold text-gray-800">Crisis Support Bot</h3>
                     </div>
                     <p className="mb-4 text-gray-600">Chat with our AI for immediate health guidance.</p>
-                    <Button className="w-full bg-green-500 hover:bg-green-600 text-white">
+                    <Link 
+                      className="w-full bg-green-500 hover:bg-green-600 text-white"
+                      href="/support?assistant=Daily%20Crisis"
+                    >
                       Chat Now
-                    </Button>
+                    </Link>
                   </CardContent>
                 </Card>
               </div>

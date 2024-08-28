@@ -107,7 +107,7 @@ function SupportPageContent() {
       {!assistant ? (
         <>
           <PeerCalls />
-          <SupportGroups />
+          {/**<SupportGroups />*/}
         </>
       ) : (
         <VoiceClientProvider voiceClient={voiceClientRef.current!}>
