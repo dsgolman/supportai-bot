@@ -6,7 +6,9 @@ import { Input } from '@/components/ui/input';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
-import { Mic, ArrowRight, ArrowLeft } from 'lucide-react';
+import { ArrowRight, ArrowLeft } from 'lucide-react';
+import { PreCall } from '@/components/PreCall';
+import HelpTip from '@/components/ui/helptip';
 
 interface OnboardingProps {
   signup: (formData: FormData) => Promise<void>;
@@ -14,8 +16,6 @@ interface OnboardingProps {
 
 const Onboarding: React.FC<OnboardingProps> = ({ signup }) => {
   const [step, setStep] = useState(0);
-  const [isRecording, setIsRecording] = useState(false);
-  const [transcript, setTranscript] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
@@ -24,7 +24,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ signup }) => {
 
   const steps = [
     { title: 'Welcome', description: 'Let\'s get started with Daily Dose' },
-    { title: 'Voice Interaction', description: 'Try our voice interface' },
+    { title: 'Onboarding Assistant', description: 'Speak with our AI onboarding assistant' },
     { title: 'Create Account', description: 'Set up your Daily Dose account' },
     { title: 'Personal Details', description: 'Tell us a bit about yourself' },
   ];
@@ -47,20 +47,6 @@ const Onboarding: React.FC<OnboardingProps> = ({ signup }) => {
     }
   };
 
-  const handleRecording = async () => {
-    if (isRecording) {
-      setIsRecording(false);
-      // Assume humeEviVoiceClient is correctly initialized
-      humeEviVoiceClient.stopRecording();
-      const result = await humeEviVoiceClient.getTranscription();
-      setTranscript(result);
-    } else {
-      setIsRecording(true);
-      // Assume humeEviVoiceClient is correctly initialized
-      humeEviVoiceClient.startRecording();
-    }
-  };
-
   const handleSignUp = async () => {
     try {
       const formData = new FormData();
@@ -71,8 +57,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ signup }) => {
         title: 'Account created',
         description: 'Please check your email for confirmation.',
       });
-      // Redirect to the confirmation page after sign-up
-      window.location.href = '/check-email';
+      handleNextStep();
     } catch (error) {
       toast({
         title: 'Error',
@@ -84,6 +69,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ signup }) => {
 
   const handleFinishOnboarding = () => {
     // Handle additional actions after onboarding if needed
+    window.location.href = '/dashboard';
   };
 
   const renderStepContent = () => {
@@ -97,17 +83,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ signup }) => {
         );
       case 1:
         return (
-          <div className="text-center">
-            <Button
-              onClick={handleRecording}
-              className={`w-24 h-24 rounded-full ${isRecording ? 'bg-red-500 hover:bg-red-600' : 'bg-primary hover:bg-primary/90'}`}
-              aria-label={isRecording ? 'Stop recording' : 'Start recording'}
-            >
-              <Mic className="w-12 h-12" />
-            </Button>
-            <p className="mt-4">{isRecording ? 'Recording...' : 'Press to start recording'}</p>
-            {transcript && <p className="mt-4 font-medium" aria-live="polite">&quot;{transcript}&quot;</p>}
-          </div>
+          <PreCall onComplete={handleNextStep} />
         );
       case 2:
         return (
@@ -176,6 +152,10 @@ const Onboarding: React.FC<OnboardingProps> = ({ signup }) => {
       );
     }
 
+    if (step === 1) {
+      return null; // PreCall component handles its own navigation
+    }
+
     return (
       <Button onClick={handleNextStep}>
         Next <ArrowRight className="ml-2 h-4 w-4" />
@@ -194,7 +174,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ signup }) => {
           {renderStepContent()}
         </CardContent>
         <CardFooter className="flex justify-between">
-          {step > 0 && (
+          {step > 0 && step !== 1 && (
             <Button onClick={handlePreviousStep} variant="outline">
               <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Button>

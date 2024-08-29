@@ -19,7 +19,7 @@ const status_text = {
   connecting: "Connecting...",
 };
 
-export function PreCall() {
+export function PreCall({ onComplete }: { onComplete: () => void }) {
   const voiceClient = useVoiceClient();
   const transportState = useVoiceClientTransportState();
 
@@ -77,6 +77,7 @@ export function PreCall() {
   async function leave() {
     if (!voiceClient) return;
     await voiceClient.disconnect();
+    onComplete();
   }
 
   if (error) {
@@ -108,15 +109,15 @@ export function PreCall() {
   return (
     <Card id="precall-card" className="animate-appear max-w-lg">
       <CardHeader id="card-header">
-        <CardTitle id="card-title">{assistant?.name || "Configuration"}</CardTitle>
-        {assistant?.description && (
-          <CardDescription id="card-description">{assistant.description}</CardDescription>
-        )}
+        <CardTitle id="card-title">{assistant?.name || "Onboarding Assistant"}</CardTitle>
+        <CardDescription id="card-description">
+          {assistant?.description || "Speak with our AI onboarding assistant"}
+        </CardDescription>
       </CardHeader>
       <CardContent id="card-content">
         <div className="flex flex-row gap-2 bg-primary-50 px-4 py-2 md:p-2 text-sm items-center justify-center rounded-md font-medium text-pretty" id="status-info">
           <Ear className="size-7 md:size-5 text-primary-400" />
-          Works best in a quiet environment with a good internet.
+          Works best in a quiet environment with a good internet connection.
         </div>
         <Configure
           startAudioOff={startAudioOff}

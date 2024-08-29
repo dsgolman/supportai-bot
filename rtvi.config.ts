@@ -221,7 +221,13 @@ export const PRESET_ASSISTANTS = [
   </DailyCrisisBot>`,
   "voice": "79a125e8-cd45-4c13-8a67-188112f4dd22",
   "description": "Daily Crisis offers immediate support for mental health crises, including calming techniques and safety planning. This service is free and available to all users."
-}
+  },
+  {
+    name: "Daily Onboarding Bot",
+    prompt: "You are a friendly onboarding assistant for Daily Dose. Guide new users through the setup process, explain features, and answer any questions they might have about getting started with the app.",
+    voice: "79a125e8-cd45-4c13-8a67-188112f4dd22", // Choose an appropriate voice
+    description: "Get help setting up your Daily Dose account and learn about our features."
+  }
 
   // {
   //   name: "Panic Attack Bot",
