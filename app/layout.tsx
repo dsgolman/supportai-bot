@@ -22,6 +22,7 @@ export default function RootLayout({
             <div className="flex justify-between items-center">
               <h1 className="text-2xl font-bold text-blue-600">Daily Dose</h1>
               <ul className="flex space-x-4">
+                <li><a href="/login" className="text-gray-600 hover:text-blue-600">Login</a></li>
                 <li><a href="/support" className="text-gray-600 hover:text-blue-600">Support</a></li>
                 <li><a href="/support?assistant=Daily%20Dose" className="text-gray-600 hover:text-blue-600">Start Session</a></li>
               </ul>
