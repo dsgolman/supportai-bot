@@ -80,7 +80,7 @@ export default function AccountPage({ user }: { user: User | null }) {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="email">Email</Label>
+            <Label>Email</Label>
             <div className="relative">
               <Input
                 id="email"
@@ -93,7 +93,7 @@ export default function AccountPage({ user }: { user: User | null }) {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="fullName">Full Name</Label>
+            <Label>Full Name</Label>
             <div className="relative">
               <Input
                 id="fullName"
@@ -106,7 +106,7 @@ export default function AccountPage({ user }: { user: User | null }) {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="username">Username</Label>
+            <Label>Username</Label>
             <div className="relative">
               <Input
                 id="username"
@@ -119,7 +119,7 @@ export default function AccountPage({ user }: { user: User | null }) {
             </div>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="website">Website</Label>
+            <Label>Website</Label>
             <div className="relative">
               <Input
                 id="website"

@@ -21,7 +21,7 @@ export default function LoginPage() {
         <form>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label>Email</Label>
               <div className="relative">
                 <Input
                   id="email"
@@ -35,7 +35,7 @@ export default function LoginPage() {
               </div>
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label>Password</Label>
               <PasswordInput id="password" name="password" />
             </div>
           </CardContent>
