@@ -42,5 +42,5 @@ export async function signup(formData: FormData) {
   }
 
   // Redirect to the "Check Your Email" page
-  redirect('/check-email');
+  redirect('/dashboard');
 }

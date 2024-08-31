@@ -8,13 +8,54 @@ import { VoiceClientAudio, VoiceClientProvider } from "realtime-ai-react";
 import Onboarding from '@/components/Onboarding';
 import { signup } from '../login/actions';
 import { AssistantProvider, useAssistant } from '@/components/assistantContext';
-import { PreCall } from "@/components/PreCall";
-import { BOT_READY_TIMEOUT, defaultConfig, defaultServices } from "@/rtvi.config";
+import { BOT_READY_TIMEOUT, defaultConfig, defaultServices, PRESET_ASSISTANTS } from "@/rtvi.config";
 
-const OnboardingPage: React.FC = () => {
-  const { assistant } = useAssistant();
+interface ConfigOption {
+  name: string;
+  value: any;
+}
+
+interface ConfigItem {
+  service: string;
+  options: ConfigOption[];
+}
+
+function OnboardingPageContent() {
+  const { assistant, setAssistant } = useAssistant();
   const [voiceClient, setVoiceClient] = useState<DailyVoiceClient | null>(null);
   const voiceClientRef = useRef<DailyVoiceClient | null>(null);
+
+  const updateConfigWithAssistantData = (config: ConfigItem[], assistantData: typeof PRESET_ASSISTANTS[0]): ConfigItem[] => {
+    const updatedConfig = JSON.parse(JSON.stringify(config));
+
+    updatedConfig.forEach((item: ConfigItem) => {
+      if (item.service === "tts") {
+        item.options.forEach((option: ConfigOption) => {
+          if (option.name === "voice") {
+            option.value = assistantData.voice;
+          }
+        });
+      }
+      if (item.service === "llm") {
+        item.options.forEach((option: ConfigOption) => {
+          if (option.name === "initial_messages") {
+            option.value[0].content = assistantData.prompt;
+          }
+        });
+      }
+    });
+
+    return updatedConfig;
+  };
+
+  useEffect(() => {
+    if (!assistant) {
+      const onboardingAssistant = PRESET_ASSISTANTS.find(a => a.name === "Daily Onboarding Bot");
+      if (onboardingAssistant) {
+        setAssistant(onboardingAssistant);
+      }
+    }
+  }, [assistant, setAssistant]);
 
   useEffect(() => {
     if (voiceClientRef.current || !assistant) {
@@ -24,7 +65,7 @@ const OnboardingPage: React.FC = () => {
     const voiceClient = new DailyVoiceClient({
       baseUrl: process.env.NEXT_PUBLIC_BASE_URL || "/api",
       services: defaultServices,
-      config: defaultConfig,
+      config: updateConfigWithAssistantData(defaultConfig, assistant),
       timeout: BOT_READY_TIMEOUT,
     });
 
@@ -37,7 +78,7 @@ const OnboardingPage: React.FC = () => {
   }
 
   return (
-    <AssistantProvider>
+    <>
       {voiceClient && (
         <VoiceClientProvider voiceClient={voiceClientRef.current!}>
           <TooltipProvider>
@@ -51,6 +92,14 @@ const OnboardingPage: React.FC = () => {
           <VoiceClientAudio />
         </VoiceClientProvider>
       )}
+    </>
+  );
+}
+
+const OnboardingPage: React.FC = () => {
+  return (
+    <AssistantProvider>
+      <OnboardingPageContent />
     </AssistantProvider>
   );
 };

@@ -8,42 +8,41 @@ import { Label } from '@/components/ui/label';
 import { useToast } from '@/components/ui/use-toast';
 import { ArrowRight, ArrowLeft } from 'lucide-react';
 import { PreCall } from '@/components/PreCall';
-import HelpTip from '@/components/ui/helptip';
+
+const steps = [
+  { title: 'Welcome', description: 'Let\'s get started with Daily Dose' },
+  { title: 'Onboarding Assistant', description: 'Speak with our AI onboarding assistant' },
+  { title: 'Create Account', description: 'Set up your Daily Dose account' },
+  { title: 'Personal Details', description: 'Tell us a bit about yourself' },
+];
 
 interface OnboardingProps {
   signup: (formData: FormData) => Promise<void>;
 }
 
 const Onboarding: React.FC<OnboardingProps> = ({ signup }) => {
-  const [step, setStep] = useState(0);
+  const [currentStep, setCurrentStep] = useState(0);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [name, setName] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
 
-  const steps = [
-    { title: 'Welcome', description: 'Let\'s get started with Daily Dose' },
-    { title: 'Onboarding Assistant', description: 'Speak with our AI onboarding assistant' },
-    { title: 'Create Account', description: 'Set up your Daily Dose account' },
-    { title: 'Personal Details', description: 'Tell us a bit about yourself' },
-  ];
-
   useEffect(() => {
-    if (step === 3 && inputRef.current) {
+    if (currentStep === 3 && inputRef.current) {
       inputRef.current.focus();
     }
-  }, [step]);
+  }, [currentStep]);
 
   const handleNextStep = () => {
-    if (step < steps.length - 1) {
-      setStep(prevStep => prevStep + 1);
+    if (currentStep < steps.length - 1) {
+      setCurrentStep(prevStep => prevStep + 1);
     }
   };
 
   const handlePreviousStep = () => {
-    if (step > 0) {
-      setStep(prevStep => prevStep - 1);
+    if (currentStep > 0) {
+      setCurrentStep(prevStep => prevStep - 1);
     }
   };
 
@@ -68,12 +67,11 @@ const Onboarding: React.FC<OnboardingProps> = ({ signup }) => {
   };
 
   const handleFinishOnboarding = () => {
-    // Handle additional actions after onboarding if needed
     window.location.href = '/dashboard';
   };
 
   const renderStepContent = () => {
-    switch (step) {
+    switch (currentStep) {
       case 0:
         return (
           <div className="text-center">
@@ -136,7 +134,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ signup }) => {
   };
 
   const renderActionButton = () => {
-    if (step === steps.length - 1) {
+    if (currentStep === steps.length - 1) {
       return (
         <Button onClick={handleFinishOnboarding}>
           Finish <ArrowRight className="ml-2 h-4 w-4" />
@@ -144,7 +142,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ signup }) => {
       );
     }
 
-    if (step === 2) {
+    if (currentStep === 2) {
       return (
         <Button onClick={handleSignUp} disabled={!email || !password}>
           Sign Up <ArrowRight className="ml-2 h-4 w-4" />
@@ -152,7 +150,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ signup }) => {
       );
     }
 
-    if (step === 1) {
+    if (currentStep === 1) {
       return null; // PreCall component handles its own navigation
     }
 
@@ -163,18 +161,24 @@ const Onboarding: React.FC<OnboardingProps> = ({ signup }) => {
     );
   };
 
+  const currentStepData = steps[currentStep];
+
   return (
     <div className="flex items-center justify-center min-h-screen bg-gradient-to-r from-primary to-secondary">
       <Card className="w-full max-w-md">
         <CardHeader>
-          <CardTitle>{steps[step].title}</CardTitle>
-          <CardDescription>{steps[step].description}</CardDescription>
+          {currentStepData && (
+            <>
+              <CardTitle>{currentStepData.title}</CardTitle>
+              <CardDescription>{currentStepData.description}</CardDescription>
+            </>
+          )}
         </CardHeader>
         <CardContent>
           {renderStepContent()}
         </CardContent>
         <CardFooter className="flex justify-between">
-          {step > 0 && step !== 1 && (
+          {currentStep > 0 && currentStep !== 1 && (
             <Button onClick={handlePreviousStep} variant="outline">
               <ArrowLeft className="mr-2 h-4 w-4" /> Back
             </Button>

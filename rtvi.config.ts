@@ -304,45 +304,48 @@ export const PRESET_ASSISTANTS = [
 
 export const SUPPORT_SESSIONS = [
   {
-    name: "Anxiety Support Group",
+    id: "e282a435-d676-4092-af50-c8708601a69b",
+    name: "Mental Health",
     prompt: `You are a mental health support companion. Connect with others and learn coping strategies for managing anxiety. 
     Please keep your responses supportive and practical, avoiding special characters other than '!' or '?'.`,
     voice: "79a125e8-cd45-4c13-8a67-188112f4dd22",
     description: "Connect with others and learn coping strategies for managing anxiety.",
   },
   {
-    name: "Relationship Healing",
+    id: "fd30ae1c-8818-4e29-a9d6-873e370feace",
+    name: "Emotional Health",
     prompt: `You are a relationship counselor. Explore healthy communication and conflict resolution techniques with me. 
     Keep your responses empathetic and constructive, avoiding special characters other than '!' or '?'.`,
     voice: "b7d50908-b17c-442d-ad8d-810c63997ed9",
     description: "Explore healthy communication and conflict resolution techniques.",
   },
+  // {
+  //   name: "Overcoming Addiction",
+  //   prompt: `You are a support specialist for addiction recovery. Find support and accountability on the journey to sobriety. 
+  //   Make sure your responses are encouraging and non-judgmental, avoiding special characters other than '!' or '?'.`,
+  //   voice: "726d5ae5-055f-4c3d-8355-d9677de68937",
+  //   description: "Find support and accountability on your journey to sobriety.",
+  // },
   {
-    name: "Overcoming Addiction",
-    prompt: `You are a support specialist for addiction recovery. Find support and accountability on the journey to sobriety. 
-    Make sure your responses are encouraging and non-judgmental, avoiding special characters other than '!' or '?'.`,
-    voice: "726d5ae5-055f-4c3d-8355-d9677de68937",
-    description: "Find support and accountability on your journey to sobriety.",
-  },
-  {
-    name: "Grief and Loss Support",
+    id: "d5a77bf4-c5bb-4a14-8e91-3901d9108d79",
+    name: "Physical Health",
     prompt: `You are a grief counselor. Navigate the grieving process with empathy and understanding. 
     Ensure your responses are compassionate and supportive, avoiding special characters other than '!' or '?'.`,
     voice: "fb26447f-308b-471e-8b00-8e9f04284eb5",
     description: "Navigate the grieving process with empathy and understanding.",
   },
-  {
-    name: "Self-Esteem Building",
-    prompt: `You are a self-esteem coach. Help develop a positive self-image and boost confidence. 
-    Keep your responses motivational and constructive, avoiding special characters other than '!' or '?'.`,
-    voice: "63ff761f-c1e8-414b-b969-d1833d1c870c",
-    description: "Develop a positive self-image and boost your confidence.",
-  },
-  {
-    name: "Parenting Support",
-    prompt: `You are a parenting advisor. Connect with other parents and learn effective parenting strategies. 
-    Make sure your responses are practical and supportive, avoiding special characters other than '!' or '?'.`,
-    voice: "820a3788-2b37-4d21-847a-b65d8a68c99a",
-    description: "Connect with other parents and learn effective parenting strategies.",
-  },
+  // {
+  //   name: "Self-Esteem Building",
+  //   prompt: `You are a self-esteem coach. Help develop a positive self-image and boost confidence. 
+  //   Keep your responses motivational and constructive, avoiding special characters other than '!' or '?'.`,
+  //   voice: "63ff761f-c1e8-414b-b969-d1833d1c870c",
+  //   description: "Develop a positive self-image and boost your confidence.",
+  // },
+  // {
+  //   name: "Parenting Support",
+  //   prompt: `You are a parenting advisor. Connect with other parents and learn effective parenting strategies. 
+  //   Make sure your responses are practical and supportive, avoiding special characters other than '!' or '?'.`,
+  //   voice: "820a3788-2b37-4d21-847a-b65d8a68c99a",
+  //   description: "Connect with other parents and learn effective parenting strategies.",
+  // },
 ];
