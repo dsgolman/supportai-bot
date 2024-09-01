@@ -28,7 +28,8 @@
     "realtime-ai-react": "^0.1.6",
     "recorder-js": "^1.0.7",
     "tailwind-merge": "^2.5.2",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "uuid": "^10.0.0"
   },
   "devDependencies": {
     "@types/node": "^20",
