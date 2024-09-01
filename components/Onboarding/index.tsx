@@ -80,14 +80,14 @@ const Onboarding: React.FC<OnboardingProps> = ({ signup }) => {
           </div>
         );
       case 1:
-        return (
-          <PreCall onComplete={handleNextStep} />
-        );
+        return null
+          // <PreCall onComplete={handleNextStep} />
+        // );
       case 2:
         return (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="email">Email</Label>
+              <Label>Email</Label>
               <Input
                 id="email"
                 type="email"
@@ -98,7 +98,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ signup }) => {
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="password">Password</Label>
+              <Label>Password</Label>
               <Input
                 id="password"
                 type="password"
@@ -115,7 +115,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ signup }) => {
         return (
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label>Name</Label>
               <Input
                 id="name"
                 type="text"

@@ -1,23 +1,23 @@
 // components/SupportGroups.tsx
+
+"use client";
+
 import { useRouter } from 'next/navigation';
-import { useState } from 'react';
-import {
-  NavigationMenu,
-  NavigationMenuList,
-  NavigationMenuLink,
-} from '@/components/ui/navigation-menu';
-import Link from 'next/link';
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { SUPPORT_SESSIONS } from '@/rtvi.config';
+import { PRESET_ASSISTANTS } from '@/rtvi.config'; // Adjust the import path as necessary
+import { useAssistant } from '@/components/assistantContext';
 
 export function SupportGroups() {
-  const [selectedGroup, setSelectedGroup] = useState<string | null>(null);
+  const { setAssistant } = useAssistant();
   const router = useRouter();
 
-  const handleJoinGroup = (groupId: string) => {
-    router.push(`/group/${groupId}`);
+  const handleJoinGroup = (index: number) => {
+    setAssistant(groupChatAssistants[index]);
+    // router.push(`/group/${PRESET_ASSISTANTS[index].name}`); // Navigate to the group page
   };
+
+  const groupChatAssistants = PRESET_ASSISTANTS.filter(assistant => assistant.supportsGroupChat);
 
   return (
     <div className="container mx-auto py-12 px-4 md:px-6">
@@ -29,33 +29,17 @@ export function SupportGroups() {
         </p>
       </div>
       <div className="mt-12">
-        <NavigationMenu className="mb-8">
-          <NavigationMenuList>
-            {SUPPORT_SESSIONS.map((session) => (
-              <NavigationMenuLink asChild key={session.id}>
-                <Link
-                  href="#"
-                  onClick={() => setSelectedGroup(session.id)}
-                  className="group inline-flex h-9 w-max items-center justify-center rounded-md bg-background px-4 py-2 text-sm font-medium transition-colors hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:text-accent-foreground focus:outline-none disabled:pointer-events-none disabled:opacity-50 data-[active]:bg-accent/50 data-[state=open]:bg-accent/50"
-                  prefetch={false}
-                >
-                  {session.name}
-                </Link>
-              </NavigationMenuLink>
-            ))}
-          </NavigationMenuList>
-        </NavigationMenu>
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {SUPPORT_SESSIONS.map((session) => (
-            <Card key={session.id}>
+          {groupChatAssistants.map((assistant, i) => (
+            <Card key={assistant.name}>
               <CardHeader>
-                <CardTitle>{session.name}</CardTitle>
-                <CardDescription>{session.description}</CardDescription>
+                <CardTitle>{assistant.name}</CardTitle>
+                <CardDescription>{assistant.description}</CardDescription>
               </CardHeader>
               <CardContent>
                 <Button
                   variant="outline"
-                  onClick={() => handleJoinGroup(session.id)}
+                  onClick={() => handleJoinGroup(i)}
                 >
                   Join Group
                 </Button>

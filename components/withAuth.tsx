@@ -1,5 +1,5 @@
 // withAuth.tsx
-import { useEffect, ComponentType } from 'react';
+import { useState, useEffect, ComponentType } from 'react';
 import { useRouter } from 'next/router';
 import { createClient } from "@/utils/supabase/client";
 
@@ -7,7 +7,7 @@ const withAuth = <P extends object>(WrappedComponent: ComponentType<P>) => {
   const WithAuthComponent = (props: P) => {
     const router = useRouter();
     const supabase = createClient();
-    const [user, setUser] = React.useState<any>(null); // Adjust the type according to your user data structure
+    const [user, setUser] = useState<any>(null); // Adjust the type according to your user data structure
 
     useEffect(() => {
       const checkUser = async () => {

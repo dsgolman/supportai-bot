@@ -3,13 +3,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { Ear, Loader2 } from "lucide-react";
 import { VoiceEvent, VoiceMessage } from "realtime-ai";
-import { useVoiceClient, useVoiceClientEvent, useVoiceClientTransportState } from "realtime-ai-react";
+import { useVoiceClient, useVoiceClientEvent, useVoiceClientTransportState, useVoiceClientMediaTrack } from "realtime-ai-react";
 import { Button } from "./ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./ui/card";
 import { Configure } from "./Configure";
 import Session from "./Session";
 import { useAssistant } from "@/components/assistantContext";
 import { Alert } from "./ui/alert";
+import { GroupChat } from "@/components/GroupChat";
+import { createClient } from '@/utils/supabase/client';
 
 const status_text = {
   idle: "Initializing...",
@@ -19,18 +21,68 @@ const status_text = {
   connecting: "Connecting...",
 };
 
-export function PreCall({ onComplete }: { onComplete: () => void }) {
+export function PreCall({ isGroupChat, userId, onComplete }: { isGroupChat: boolean, userId: string, onComplete: () => void }) {
   const voiceClient = useVoiceClient();
   const transportState = useVoiceClientTransportState();
-
-  const [appState, setAppState] = useState<
-    "idle" | "ready" | "connecting" | "connected"
-  >("idle");
-
+  const [appState, setAppState] = useState<"idle" | "ready" | "connecting" | "connected">("idle");
   const [error, setError] = useState<string | null>(null);
   const [startAudioOff, setStartAudioOff] = useState<boolean>(false);
-
+  const [isFirstUser, setIsFirstUser] = useState<boolean>(false);
   const { assistant } = useAssistant();
+  const supabase = createClient();
+
+  const groupId = assistant?.id;
+  const botAudioTrack = useVoiceClientMediaTrack("audio", "bot");
+
+
+  const checkFirstUser = async () => {
+    if (!groupId) return;
+
+    try {
+      // Check if the record already exists
+      const { data: existingData, error: existingError } = await supabase
+        .from('call_state')
+        .select('first_user_id')
+        .eq('group_id', groupId)
+        .single();
+
+      if (existingError && existingError.code !== 'PGRST116') { // PGRST116 is the code for "No rows found"
+        console.error('Error checking existing first user:', existingError);
+        setIsFirstUser(false);
+        return;
+      }
+
+      if (existingData) {
+        // Record exists, set isFirstUser based on the existing first_user_id
+        setIsFirstUser(existingData.first_user_id === userId);
+      } else {
+        // Record does not exist, insert a new record
+        const { data, error } = await supabase
+          .from('call_state')
+          .insert({ group_id: groupId, first_user_id: userId })
+          .select('first_user_id')
+          .single();
+
+        if (error) {
+          console.error('Error setting first user:', error);
+          setIsFirstUser(false);
+        } else {
+          setIsFirstUser(data.first_user_id === userId);
+        }
+      }
+    } catch (error) {
+      console.error('Unexpected error in checkFirstUser:', error);
+      setIsFirstUser(false);
+    }
+  };
+
+  // Call the checkFirstUser function when the component mounts or when groupId, userId, or isGroupChat changes
+  useEffect(() => {
+    if (isGroupChat && groupId) {
+      checkFirstUser();
+    }
+  }, [groupId, userId, isGroupChat, supabase]);
+
 
   const handleError = useCallback((message: VoiceMessage) => {
     const errorData = message.data as { error: string; fatal: boolean };
@@ -64,11 +116,52 @@ export function PreCall({ onComplete }: { onComplete: () => void }) {
     }
   }, [transportState]);
 
+  useEffect(() => {
+    if (botAudioTrack && isFirstUser) {
+      const channel = supabase.channel(`audio_${groupId}`);
+      
+      const broadcastAudio = async () => {
+        const stream = new MediaStream([botAudioTrack]);
+        const mediaRecorder = new MediaRecorder(stream);
+        
+        mediaRecorder.ondataavailable = async (event) => {
+          if (event.data.size > 0) {
+            const audioArrayBuffer = await event.data.arrayBuffer();
+            channel.send({
+              type: 'broadcast',
+              event: 'audio',
+              payload: { audio: audioArrayBuffer },
+            });
+          }
+        };
+
+        mediaRecorder.start(100); // Broadcast every 100ms
+      };
+
+      channel.subscribe((status) => {
+        if (status === 'SUBSCRIBED') {
+          broadcastAudio();
+        }
+      });
+
+      return () => {
+        supabase.removeChannel(channel);
+      };
+    }
+  }, [botAudioTrack, groupId, isFirstUser]);
+
   async function start() {
     if (!voiceClient) return;
     try {
+      console.log(isFirstUser);
       voiceClient.enableMic(false);
-      await voiceClient.start();
+      if (!isGroupChat) {
+        await voiceClient.start();
+      } else if (isGroupChat && isFirstUser) {
+        await voiceClient.start();
+      } else {
+        setAppState("connected");
+      }
     } catch (e) {
       voiceClient.disconnect();
     }
@@ -93,15 +186,19 @@ export function PreCall({ onComplete }: { onComplete: () => void }) {
   }
 
   if (appState === "connected") {
-    return (
-      <div className="flex h-screen items-center justify-center" id="session-container">
-        <Session
-          state={transportState}
-          onLeave={() => leave()}
-          startAudioOff={startAudioOff}
-        />
-      </div>
-    );
+    if (isGroupChat && groupId) {
+      return <GroupChat groupId={groupId} userId={userId} isFirstUser={isFirstUser} />;
+    } else {
+      return (
+        <div className="flex h-screen items-center justify-center" id="session-container">
+          <Session
+            state={transportState}
+            onLeave={() => leave()}
+            startAudioOff={startAudioOff}
+          />
+        </div>
+      );
+    }
   }
 
   const isReady = appState === "ready";

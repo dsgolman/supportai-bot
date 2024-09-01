@@ -86,6 +86,7 @@ export const TTS_VOICES = [
 
 export const PRESET_ASSISTANTS = [
   {
+    id: "1",
     "name": "Daily Dose",
     "prompt": `<DailyDoseBot>
       <context>
@@ -181,9 +182,11 @@ export const PRESET_ASSISTANTS = [
       </response>
     </DailyDoseBot>`,
     "voice": "79a125e8-cd45-4c13-8a67-188112f4dd22",
-    "description": "Daily Dose provides expert guidance in mental, physical, and emotional health. Subscription users unlock additional features such as in-depth medication management, advanced fitness tracking, and access to specialized therapeutic approaches."
+    "description": "Daily Dose provides expert guidance in mental, physical, and emotional health. Subscription users unlock additional features such as in-depth medication management, advanced fitness tracking, and access to specialized therapeutic approaches.",
+    supportsGroupChat: false
   },
   {
+    id: "2",
   "name": "Daily Crisis",
   "prompt": `<DailyCrisisBot>
     <context>
@@ -220,13 +223,43 @@ export const PRESET_ASSISTANTS = [
     </response>
   </DailyCrisisBot>`,
   "voice": "79a125e8-cd45-4c13-8a67-188112f4dd22",
-  "description": "Daily Crisis offers immediate support for mental health crises, including calming techniques and safety planning. This service is free and available to all users."
+  "description": "Daily Crisis offers immediate support for mental health crises, including calming techniques and safety planning. This service is free and available to all users.",
+  supportsGroupChat: false
   },
   {
+    id: "3",
     name: "Daily Onboarding Bot",
     prompt: "You are a friendly onboarding assistant for Daily Dose. Guide new users through the setup process, explain features, and answer any questions they might have about getting started with the app.",
     voice: "79a125e8-cd45-4c13-8a67-188112f4dd22", // Choose an appropriate voice
-    description: "Get help setting up your Daily Dose account and learn about our features."
+    description: "Get help setting up your Daily Dose account and learn about our features.",
+    supportsGroupChat: false
+  },
+  {
+    id: "e282a435-d676-4092-af50-c8708601a69b",
+    name: "Mental Health",
+    prompt: `You are a mental health support companion. Connect with others and learn coping strategies for managing anxiety. 
+    Please keep your responses supportive and practical, avoiding special characters other than '!' or '?'.`,
+    voice: "79a125e8-cd45-4c13-8a67-188112f4dd22",
+    description: "Connect with others and learn coping strategies for managing anxiety.",
+    supportsGroupChat: true
+  },
+  {
+    id: "fd30ae1c-8818-4e29-a9d6-873e370feace",
+    name: "Emotional Health",
+    prompt: `You are a relationship counselor. Explore healthy communication and conflict resolution techniques with me. 
+    Keep your responses empathetic and constructive, avoiding special characters other than '!' or '?'.`,
+    voice: "b7d50908-b17c-442d-ad8d-810c63997ed9",
+    description: "Explore healthy communication and conflict resolution techniques.",
+    supportsGroupChat: true
+  },
+  {
+    id: "d5a77bf4-c5bb-4a14-8e91-3901d9108d79",
+    name: "Physical Health",
+    prompt: `You are a grief counselor. Navigate the grieving process with empathy and understanding. 
+    Ensure your responses are compassionate and supportive, avoiding special characters other than '!' or '?'.`,
+    voice: "fb26447f-308b-471e-8b00-8e9f04284eb5",
+    description: "Navigate the grieving process with empathy and understanding.",
+    supportsGroupChat: true
   }
 
   // {

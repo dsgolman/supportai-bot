@@ -15,6 +15,7 @@
     "@radix-ui/react-slot": "^1.1.0",
     "@supabase/ssr": "^0.5.1",
     "@supabase/supabase-js": "^2.45.2",
+    "@types/uuid": "^10.0.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
     "lucide-react": "^0.435.0",
@@ -25,6 +26,7 @@
     "realtime-ai": "^0.1.6",
     "realtime-ai-daily": "^0.1.6",
     "realtime-ai-react": "^0.1.6",
+    "recorder-js": "^1.0.7",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7"
   },

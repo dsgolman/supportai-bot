@@ -65,6 +65,10 @@ function SupportPageContent({ user }: SupportPageProps) {
     return updatedConfig;
   };
 
+  const onComplete = () => {
+    console.log("finished")
+  }
+
   useEffect(() => {
     if (assistant) {
       return;
@@ -117,7 +121,11 @@ function SupportPageContent({ user }: SupportPageProps) {
           <TooltipProvider>
             <main>
               <div id="app">
-                <PreCall />
+                <PreCall 
+                  isGroupChat={assistant.supportsGroupChat}
+                  userId={user.id}
+                  onComplete={onComplete}
+                />
               </div>
             </main>
             <aside id="tray" />
