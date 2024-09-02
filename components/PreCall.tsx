@@ -116,47 +116,15 @@ export function PreCall({ isGroupChat, userId, onComplete }: { isGroupChat: bool
     }
   }, [transportState]);
 
-  useEffect(() => {
-    if (botAudioTrack && isFirstUser) {
-      const channel = supabase.channel(`audio_${groupId}`);
-      
-      const broadcastAudio = async () => {
-        const stream = new MediaStream([botAudioTrack]);
-        const mediaRecorder = new MediaRecorder(stream);
-        
-        mediaRecorder.ondataavailable = async (event) => {
-          if (event.data.size > 0) {
-            const audioArrayBuffer = await event.data.arrayBuffer();
-            channel.send({
-              type: 'broadcast',
-              event: 'audio',
-              payload: { audio: audioArrayBuffer },
-            });
-          }
-        };
-
-        mediaRecorder.start(100); // Broadcast every 100ms
-      };
-
-      channel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          broadcastAudio();
-        }
-      });
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [botAudioTrack, groupId, isFirstUser]);
-
   async function start() {
     if (!voiceClient) return;
     try {
       console.log(isFirstUser);
-      voiceClient.enableMic(false);
+      
       if (!isGroupChat) {
+        voiceClient.enableMic(true);
         await voiceClient.start();
+
       } else if (isGroupChat && isFirstUser) {
         await voiceClient.start();
       } else {

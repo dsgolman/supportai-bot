@@ -9,7 +9,8 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Send, Mic, MicOff } from "lucide-react";
 import { v4 as uuidv4 } from 'uuid';
-import { useVoiceClient, VoiceClientAudio, useVoiceClientMediaTrack } from 'realtime-ai-react';
+import { VoiceEvent, VoiceClientAudio } from 'realtime-ai';
+import { useVoiceClient, useVoiceClientEvent, useVoiceClientMediaTrack } from 'realtime-ai-react';
 
 interface Message {
   id: string;
@@ -23,7 +24,7 @@ interface Message {
 interface GroupChatProps {
   groupId: string;
   userId: string;
-  isFirstUser: boolean; // Add this prop to determine if the user is the first user
+  isFirstUser: boolean;
 }
 
 export function GroupChat({ groupId, userId, isFirstUser }: GroupChatProps) {
@@ -31,15 +32,28 @@ export function GroupChat({ groupId, userId, isFirstUser }: GroupChatProps) {
   const [newMessage, setNewMessage] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [isRecording, setIsRecording] = useState<boolean>(false);
-  const [audioChunks, setAudioChunks] = useState<Blob[]>([]);
+  const [recordedChunks, setRecordedChunks] = useState<Blob[]>([]);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const voiceClient = useVoiceClient()!;
   const localAudioTrack = useVoiceClientMediaTrack("audio", "local");
   const botAudioTrack = useVoiceClientMediaTrack("audio", "bot");
-  const localAudioRef = useRef<HTMLAudioElement>(null);
 
   const supabase = createClient();
+
+  useVoiceClientEvent(
+    VoiceEvent.BotStartedSpeaking,
+    (p) => {
+      startBotRecording();
+    }
+  );
+
+  useVoiceClientEvent(
+    VoiceEvent.BotStoppedSpeaking,
+    (p) => {
+      stopBotRecording();
+    }
+  );
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -80,76 +94,34 @@ export function GroupChat({ groupId, userId, isFirstUser }: GroupChatProps) {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  useEffect(() => {
-    if (!localAudioRef.current || !localAudioTrack) return;
-    localAudioRef.current.srcObject = new MediaStream([localAudioTrack]);
-  }, [localAudioTrack]);
-
-  useEffect(() => {
-    if (voiceClient) {
-      voiceClient.enableMic(true);
-    }
-  }, [voiceClient]);
-
-  useEffect(() => {
-    if (isFirstUser && botAudioTrack) {
-      const channel = supabase.channel(`audio_${groupId}`);
-
-      const broadcastAudio = async () => {
-        const stream = new MediaStream([botAudioTrack]);
-        const mediaRecorder = new MediaRecorder(stream);
-
-        mediaRecorder.ondataavailable = async (event) => {
-          if (event.data.size > 0) {
-            const audioArrayBuffer = await event.data.arrayBuffer();
-            channel.send({
-              type: 'broadcast',
-              event: 'audio',
-              payload: { audio: audioArrayBuffer },
-            });
-          }
-        };
-
-        mediaRecorder.start(100); // Broadcast every 100ms
-      };
-
-      channel.subscribe((status) => {
-        if (status === 'SUBSCRIBED') {
-          broadcastAudio();
-        }
-      });
-
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
-  }, [isFirstUser, groupId, supabase, botAudioTrack]);
-
   const startRecording = async () => {
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       const mediaRecorder = new MediaRecorder(stream);
       mediaRecorderRef.current = mediaRecorder;
-      mediaRecorder.start();
+      setIsRecording(true);
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
-          setAudioChunks((prev) => [...prev, event.data]);
+          setRecordedChunks(prevChunks => [...prevChunks, event.data]);
         }
       };
 
       mediaRecorder.onstop = async () => {
-        if (audioChunks.length > 0) {
-          const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+        setIsRecording(false);
+        console.log("stopping");
+        if (recordedChunks.length > 0) {
+          const audioBlob = new Blob(recordedChunks, { type: 'audio/webm' });
           const audioUrl = await uploadAudioToSupabase(audioBlob);
+
           if (audioUrl) {
             await sendMessage(null, audioUrl);
           }
-          setAudioChunks([]);
+          setRecordedChunks([]);
         }
       };
 
-      setIsRecording(true);
+      mediaRecorder.start();
     } catch (error) {
       console.error('Error starting recording:', error);
     }
@@ -158,7 +130,6 @@ export function GroupChat({ groupId, userId, isFirstUser }: GroupChatProps) {
   const stopRecording = () => {
     if (mediaRecorderRef.current) {
       mediaRecorderRef.current.stop();
-      setIsRecording(false);
     }
   };
 
@@ -167,113 +138,132 @@ export function GroupChat({ groupId, userId, isFirstUser }: GroupChatProps) {
     console.log(`Uploading audio with fileName: ${fileName}`);
 
     const { data, error: uploadError } = await supabase.storage
-      .from('audio-messages')
+      .from('audio')
       .upload(fileName, audioBlob);
 
     if (uploadError) {
-      console.error('Error uploading audio:', uploadError);
+      console.error('Upload error:', uploadError);
       return null;
     }
 
-    console.log(`Audio uploaded successfully. Constructing public URL.`);
-    const publicURL = `${process.env.NEXT_PUBLIC_SUPABASE_URL}/storage/v1/object/public/audio-messages/${fileName}`;
-
-    console.log(`Public URL obtained: ${publicURL}`);
-    return publicURL;
-  };
-
-  const handleSendMessage = async () => {
-    if (newMessage.trim() === '') return;
-
-    await sendMessage(newMessage, null);
-    setNewMessage('');
+    const audioUrl = supabase.storage.from('audio').getPublicUrl(fileName).publicURL;
+    console.log('Uploaded audio URL:', audioUrl);
+    return audioUrl;
   };
 
   const sendMessage = async (content: string | null, audioUrl: string | null) => {
-    const messageContent = content ?? 'Audio message';
-    const { error } = await supabase.from('messages').insert([
-      {
-        user_id: userId,
-        content: messageContent,
-        audio_url: audioUrl,
-        group_id: groupId,
-      },
-    ]);
+    if (content === null && audioUrl === null) return;
+
+    const newMessage = {
+      id: uuidv4(),
+      user_id: userId,
+      content: content || '',
+      created_at: new Date().toISOString(),
+      group_id: groupId,
+      audio_url: audioUrl || '',
+    };
+
+    const { error } = await supabase.from('messages').insert([newMessage]);
 
     if (error) {
       console.error('Error sending message:', error);
+    } else {
+      setMessages((prevMessages) => [...prevMessages, newMessage]);
+      setNewMessage('');
+    }
+  };
+
+  const startBotRecording = () => {
+    console.log("here");
+    console.log(botAudioTrack)
+    if (!botAudioTrack) return;
+
+    const stream = new MediaStream([botAudioTrack]);
+    const mediaRecorder = new MediaRecorder(stream);
+
+    mediaRecorder.ondataavailable = (event) => {
+      if (event.data.size > 0) {
+        setRecordedChunks(prevChunks => [...prevChunks, event.data]);
+      }
+    };
+
+    mediaRecorder.onstop = async () => {
+      if (recordedChunks.length > 0) {
+        const audioBlob = new Blob(recordedChunks, { type: 'audio/webm' });
+        const audioUrl = await uploadAudioToSupabase(audioBlob);
+
+        if (audioUrl) {
+          await sendMessage(null, audioUrl);
+        }
+        setRecordedChunks([]);
+      }
+    };
+
+    mediaRecorder.start();
+    mediaRecorderRef.current = mediaRecorder;
+  };
+
+  const stopBotRecording = () => {
+    if (mediaRecorderRef.current) {
+      mediaRecorderRef.current.stop();
+    }
+  };
+
+  const handleSendMessage = async () => {
+    if (newMessage.trim()) {
+      await sendMessage(newMessage, null);
     }
   };
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString);
-    return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    return date.toLocaleDateString('en-US', { month: 'short', day: '2-digit', year: 'numeric' }) +
+           ' ' +
+           date.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
   };
 
   return (
-    <Card className="w-full max-w-2xl mx-auto">
+    <Card>
       <CardHeader>
         <CardTitle>Group Chat</CardTitle>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="h-[400px] pr-4">
-          {loading ? (
-            <p className="text-center text-muted-foreground">Loading messages...</p>
-          ) : (
-            messages.map((msg) => (
-              <div key={msg.id} className={`mb-4 flex ${msg.user_id === userId ? 'justify-end' : 'justify-start'}`}>
+        <ScrollArea>
+          <div style={{ height: '300px', overflowY: 'scroll' }}>
+            {messages.map((message) => (
+              <div key={message.id} style={{ marginBottom: '10px' }}>
                 <div>
-                  <div className="flex items-center space-x-2">
-                    <Avatar className="w-8 h-8">
-                      <AvatarFallback>{msg.user_id.charAt(0).toUpperCase()}</AvatarFallback>
-                    </Avatar>
-                    <p className="text-xs text-muted-foreground">{formatDate(msg.created_at)}</p>
-                  </div>
-                  {msg.content && !msg.audio_url && (
-                    <div className={`rounded-lg px-3 py-2 max-w-[80%] ${msg.user_id === userId ? 'bg-primary text-primary-foreground' : 'bg-muted'}`}>
-                      <p className="text-sm">{msg.content}</p>
-                    </div>
-                  )}
-                  {msg.audio_url && (
-                    <div className="mt-2">
-                      <audio controls>
-                        <source src={msg.audio_url} type="audio/webm" />
-                        Your browser does not support the audio element.
-                      </audio>
-                    </div>
-                  )}
+                  <Avatar>
+                    <AvatarFallback>{message.user_id[0]}</AvatarFallback>
+                  </Avatar>
+                  <span>{message.user_id}</span>
                 </div>
+                <div>{message.content}</div>
+                {message.audio_url && (
+                  <audio controls src={message.audio_url} style={{ width: '100%' }} />
+                )}
+                <div>{formatDate(message.created_at)}</div>
               </div>
-            ))
-          )}
-          <div ref={messagesEndRef} />
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
         </ScrollArea>
       </CardContent>
       <CardFooter>
-        <div className="w-full flex space-x-2">
+        <div style={{ display: 'flex', alignItems: 'center' }}>
+          <Button onClick={() => (isRecording ? stopRecording() : startRecording())}>
+            {isRecording ? <MicOff /> : <Mic />}
+          </Button>
           <Input
-            type="text"
-            placeholder="Type a message..."
             value={newMessage}
             onChange={(e) => setNewMessage(e.target.value)}
-            className="flex-1"
+            placeholder="Type a message..."
           />
           <Button onClick={handleSendMessage}>
-            <Send className="w-5 h-5" />
+            <Send />
           </Button>
-          {isRecording ? (
-            <Button onClick={stopRecording} variant="destructive">
-              <MicOff className="w-5 h-5" />
-            </Button>
-          ) : (
-            <Button onClick={startRecording} variant="outline">
-              <Mic className="w-5 h-5" />
-            </Button>
-          )}
         </div>
       </CardFooter>
-      {voiceClient && isFirstUser && <VoiceClientAudio />}
-      {!isFirstUser && <audio ref={localAudioRef} autoPlay />}
     </Card>
   );
 }
