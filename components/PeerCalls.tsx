@@ -15,8 +15,8 @@ export function PeerCalls() {
   const router = useRouter();
 
   const handleStartCall = (index: number) => {
-    setAssistant(PRESET_ASSISTANTS[index]);
-    // router.push('/support/pre-call'); // Navigate to the pre-call page
+    // setAssistant(PRESET_ASSISTANTS[index]);
+    router.push(`/support?assistant=${PRESET_ASSISTANTS[index].name}`); // Navigate to the pre-call page
   };
 
   const chatAssistants = PRESET_ASSISTANTS.filter(assistant => !assistant.supportsGroupChat);

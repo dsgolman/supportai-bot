@@ -28,18 +28,86 @@ export function PreCall({ isGroupChat, userId, onComplete }: { isGroupChat: bool
   const [error, setError] = useState<string | null>(null);
   const [startAudioOff, setStartAudioOff] = useState<boolean>(false);
   const [isFirstUser, setIsFirstUser] = useState<boolean>(false);
+  const [isGroupStarted, setIsGroupStarted] = useState<boolean>(false);
   const { assistant } = useAssistant();
   const supabase = createClient();
 
   const groupId = assistant?.id;
   const botAudioTrack = useVoiceClientMediaTrack("audio", "bot");
 
-
-  const checkFirstUser = async () => {
+  const clearGroupData = async () => {
     if (!groupId) return;
 
     try {
-      // Check if the record already exists
+      // Clear messages
+      const { error: messagesError } = await supabase
+        .from('messages')
+        .delete()
+        .eq('group_id', groupId);
+
+      if (messagesError) {
+        console.error('Error clearing messages:', messagesError);
+        return;
+      }
+
+      // Clear raised hands
+      const { error: handsError } = await supabase
+        .from('raised_hands')
+        .delete()
+        .eq('group_id', groupId);
+
+      if (handsError) {
+        console.error('Error clearing raised hands:', handsError);
+        return;
+      }
+
+      console.log('All group data cleared.');
+    } catch (error) {
+      console.error('Unexpected error clearing group data:', error);
+    }
+  };
+
+  const clearGroupState = async () => {
+    if (!groupId) return;
+
+    try {
+      const { error } = await supabase
+        .from('call_state')
+        .delete()
+        .eq('group_id', groupId);
+
+      if (error) {
+        console.error('Error clearing group state:', error);
+      } else {
+        console.log('Group state cleared.');
+      }
+    } catch (error) {
+      console.error('Unexpected error clearing group state:', error);
+    }
+  };
+
+  const insertGroupMember = async (userId: string) => {
+    if (!groupId) return;
+
+    try {
+      const { error } = await supabase
+        .from('group_members')
+        .insert({ group_id: groupId, user_id: userId });
+
+      if (error) {
+        console.error('Error inserting group member:', error);
+      } else {
+        console.log('Group member inserted.');
+      }
+    } catch (error) {
+      console.error('Unexpected error inserting group member:', error);
+    }
+  };
+
+  const checkGroupState = async () => {
+    if (!groupId) return;
+
+    try {
       const { data: existingData, error: existingError } = await supabase
         .from('call_state')
         .select('first_user_id')
@@ -47,42 +115,30 @@ export function PreCall({ isGroupChat, userId, onComplete }: { isGroupChat: bool
         .single();
 
       if (existingError && existingError.code !== 'PGRST116') { // PGRST116 is the code for "No rows found"
-        console.error('Error checking existing first user:', existingError);
+        console.error('Error checking existing group state:', existingError);
         setIsFirstUser(false);
+        setIsGroupStarted(false);
         return;
       }
 
       if (existingData) {
-        // Record exists, set isFirstUser based on the existing first_user_id
         setIsFirstUser(existingData.first_user_id === userId);
+        setIsGroupStarted(true); // Group has started
       } else {
-        // Record does not exist, insert a new record
-        const { data, error } = await supabase
-          .from('call_state')
-          .insert({ group_id: groupId, first_user_id: userId })
-          .select('first_user_id')
-          .single();
-
-        if (error) {
-          console.error('Error setting first user:', error);
-          setIsFirstUser(false);
-        } else {
-          setIsFirstUser(data.first_user_id === userId);
-        }
+        setIsGroupStarted(false); // Group has not started yet
       }
     } catch (error) {
-      console.error('Unexpected error in checkFirstUser:', error);
+      console.error('Unexpected error in checkGroupState:', error);
       setIsFirstUser(false);
+      setIsGroupStarted(false);
     }
   };
 
-  // Call the checkFirstUser function when the component mounts or when groupId, userId, or isGroupChat changes
   useEffect(() => {
     if (isGroupChat && groupId) {
-      checkFirstUser();
+      checkGroupState();
     }
   }, [groupId, userId, isGroupChat, supabase]);
-
 
   const handleError = useCallback((message: VoiceMessage) => {
     const errorData = message.data as { error: string; fatal: boolean };
@@ -119,15 +175,31 @@ export function PreCall({ isGroupChat, userId, onComplete }: { isGroupChat: bool
   async function start() {
     if (!voiceClient) return;
     try {
-      console.log(isFirstUser);
-      
       if (!isGroupChat) {
         voiceClient.enableMic(true);
         await voiceClient.start();
-
       } else if (isGroupChat && isFirstUser) {
+        voiceClient.enableMic(true);
         await voiceClient.start();
       } else {
+
+        // const req = await fetch("http://localhost:7860/add-participant", {
+        //   method: "POST",
+        //   headers: {
+        //     "Content-Type": "application/json",
+        //     // Include any necessary authentication headers if required by Pipecat
+        //     // Authorization: `Bearer ${process.env.PIPECAT_API_KEY}`,
+        //   },
+        //   body: JSON.stringify({
+        //     room_url: "https://supportaiv.daily.co/mental-health",
+        //     participant_name: "test"
+        //   }),
+        // }); 
+
+        // console.log("Fetch request status:", req.status);
+        // const res = await req.json();
+        // console.log("Response from Pipecat:", res);
+
         setAppState("connected");
       }
     } catch (e) {
@@ -138,8 +210,17 @@ export function PreCall({ isGroupChat, userId, onComplete }: { isGroupChat: bool
   async function leave() {
     if (!voiceClient) return;
     await voiceClient.disconnect();
+    // Clear group state when leaving
+    await clearGroupState();
     onComplete();
   }
+
+  // Detect when a new user joins and insert them into the group_members table
+  useEffect(() => {
+    if (isGroupChat && groupId && !isFirstUser) {
+      insertGroupMember(userId);
+    }
+  }, [isGroupStarted, isFirstUser, groupId, userId]);
 
   if (error) {
     return (
@@ -197,7 +278,7 @@ export function PreCall({ isGroupChat, userId, onComplete }: { isGroupChat: bool
           disabled={!isReady}
         >
           {!isReady && <Loader2 className="animate-spin" />}
-          {status_text[transportState as keyof typeof status_text]}
+          {isGroupChat ? (isGroupStarted ? "Join Group" : "Start Group") : status_text[transportState as keyof typeof status_text]}
         </Button>
       </CardFooter>
     </Card>

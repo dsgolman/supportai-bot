@@ -101,6 +101,15 @@ function SupportPageContent({ user }: SupportPageProps) {
       timeout: BOT_READY_TIMEOUT,
     });
 
+    voiceClient.registerHelper(
+      "llm",
+      new LLMHelper({
+        callbacks: {},
+      })
+    ) as LLMHelper;
+
+    // voiceClient.helper<LLMHelper>("llm").llmContext();
+
     voiceClientRef.current = voiceClient;
     setVoiceClient(voiceClient); 
   }, [assistant]);

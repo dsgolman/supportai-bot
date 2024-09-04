@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { TransportState, VoiceEvent } from "realtime-ai";
-import { useVoiceClient, useVoiceClientEvent } from "realtime-ai-react";
+import { useVoiceClient, useVoiceClientEvent, VoiceVisualizer } from "realtime-ai-react";
 import { Button } from "../ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "../ui/card";
+import TranscriptOverlay from "./TranscriptOverlay"
 
 interface SessionProps {
   state: string;
@@ -30,6 +31,7 @@ export function Session({ state, onLeave, startAudioOff = false }: SessionProps)
   );
 
   useEffect(() => {
+    console.log("here");
     // Reset started state on mount
     setHasStarted(false);
   }, []);
@@ -42,15 +44,13 @@ export function Session({ state, onLeave, startAudioOff = false }: SessionProps)
     }, [state, onLeave]);
 
   return (
-    <Card className="flex flex-col h-screen" id="session-component">
+    <Card className="flex flex-col" id="session-component">
       <CardHeader>
         <CardTitle>Audio Session</CardTitle>
       </CardHeader>
-      <CardContent className="flex-grow">
-        {/* Your audio session UI goes here */}
-        <div className="text-center">
-          <p>The session is currently {state}.</p>
-        </div>
+      <CardContent>
+        <VoiceVisualizer participantType="bot" barColor="#000000" />
+        <TranscriptOverlay />
       </CardContent>
       <CardFooter className="flex justify-end">
         <Button onClick={onLeave}>Leave Session</Button>
