@@ -19,7 +19,7 @@ export function PeerCalls() {
     router.push(`/support?assistant=${PRESET_ASSISTANTS[index].name}`); // Navigate to the pre-call page
   };
 
-  const chatAssistants = PRESET_ASSISTANTS.filter(assistant => !assistant.supportsGroupChat);
+  const chatAssistants = PRESET_ASSISTANTS.filter(assistant => !assistant.supportsGroupChat && !assistant.onboarding);
 
   return (
     <div className="container mx-auto py-12 px-4 md:px-6">

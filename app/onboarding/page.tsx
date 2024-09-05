@@ -84,7 +84,7 @@ function OnboardingPageContent() {
           <TooltipProvider>
             <main>
               <div id="app">
-                <Onboarding signup={signup} />
+                <Onboarding />
               </div>
             </main>
             <aside id="tray" />

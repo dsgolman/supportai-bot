@@ -1,110 +1,114 @@
 "use client"
 
-import React, { useRef, useState, useEffect } from 'react';
-// import { TooltipProvider } from "@radix-ui/react-tooltip";
-// import { DailyVoiceClient } from "realtime-ai-daily";
-// import { VoiceClientAudio, VoiceClientProvider } from "realtime-ai-react";
-
-// import Onboarding from '@/components/Onboarding';
-// import { AssistantProvider, useAssistant } from '@/components/assistantContext';
-// import { BOT_READY_TIMEOUT, defaultConfig, defaultServices, PRESET_ASSISTANTS } from "@/rtvi.config";
-// import { createClient } from "@/utils/supabase/client";
-// import { redirect } from 'next/navigation';
+import Link from "next/link"
+import React, { useEffect, useState } from 'react';
+import { createClient } from "@/utils/supabase/client";
+import { useRouter } from 'next/navigation';
+import { Button } from "@/components/ui/button"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Mic, Send, User } from 'lucide-react'
 
 const DashboardPage: React.FC = () => {
-//   const { assistant, setAssistant } = useAssistant();
-//   const [voiceClient, setVoiceClient] = useState<DailyVoiceClient | null>(null);
-//   const voiceClientRef = useRef<DailyVoiceClient | null>(null);
-//   const [user, setUser] = useState<any>(null);
-//   const [isOnboarded, setIsOnboarded] = useState<boolean>(false);
+  const [fullName, setFullName] = useState<string | null>(null);
+  const [isFirstSession, setIsFirstSession] = useState(true);
+  const [message, setMessage] = useState('');
+  const router = useRouter();
 
-//   useEffect(() => {
-//     const supabase = createClient();
-    
-//     // Check if user is authenticated
-//     supabase.auth.getUser().then(({ data: { user } }) => {
-//       if (user) {
-//         setUser(user);
-//         // Check if user has completed onboarding
-//         supabase
-//           .from('profiles')
-//           .select('is_onboarded')
-//           .eq('id', user.id)
-//           .single()
-//           .then(({ data }) => {
-//             if (data) {
-//               setIsOnboarded(data.is_onboarded);
-//             }
-//           });
-//       } else {
-//         // Redirect to login if not authenticated
-//         redirect('/login');
-//       }
-//     });
-//   }, []);
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
 
-//   useEffect(() => {
-//     if (!assistant) {
-//       const onboardingAssistant = PRESET_ASSISTANTS.find(a => a.name === "Daily Onboarding Bot");
-//       if (onboardingAssistant) {
-//         setAssistant(onboardingAssistant);
-//       }
-//     }
-//   }, [assistant, setAssistant]);
+      if (session) {
+        const user = session.user;
+        // Fetch the user's full name and session count
+        const { data } = await supabase
+          .from('profiles')
+          .select('full_name, sessions_count')
+          .eq('id', user.id)
+          .single();
 
-//   useEffect(() => {
-//     if (voiceClientRef.current || !assistant) {
-//       return;
-//     }
+        if (data) {
+          setFullName(data.full_name);
+          setIsFirstSession(data.sessions_count === 0);
+        }
+      } else {
+        // Redirect to login if not authenticated
+        router.push('/login');
+      }
+    };
 
-//     const voiceClient = new DailyVoiceClient({
-//       baseUrl: process.env.NEXT_PUBLIC_BASE_URL || "/api",
-//       services: defaultServices,
-//       config: defaultConfig,
-//       timeout: BOT_READY_TIMEOUT,
-//     });
+    fetchUserData();
+  }, [router]);
 
-//     voiceClientRef.current = voiceClient;
-//     setVoiceClient(voiceClient);
-//   }, [assistant]);
+  const handleNavigate = () => {
+    router.push('/support?assistant=Daily%20Onboarding%20Bot');
+  };
 
-//   const handleOnboardingComplete = async () => {
-//     const supabase = createClient();
-//     await supabase
-//       .from('profiles')
-//       .update({ is_onboarded: true })
-//       .eq('id', user.id);
-//     setIsOnboarded(true);
-//   };
+  const handleSendMessage = () => {
+    // Implement sending message to bot
+    console.log('Sending message:', message);
+    setMessage('');
+  };
 
-//   if (!user) {
-//     return <div>Loading...</div>;
-//   }
+  const handleVoiceInput = () => {
+    // Implement voice input functionality
+    console.log('Starting voice input');
+  };
 
-//   if (!isOnboarded) {
-//     return (
-//       <AssistantProvider>
-//         {voiceClient && (
-//           <VoiceClientProvider voiceClient={voiceClientRef.current!}>
-//             <TooltipProvider>
-//               <main>
-//                 <div id="app">
-//                   <Onboarding signup={handleOnboardingComplete} />
-//                 </div>
-//               </main>
-//               <aside id="tray" />
-//             </TooltipProvider>
-//             <VoiceClientAudio />
-//           </VoiceClientProvider>
-//         )}
-//       </AssistantProvider>
-//     );
-//   }
+  if (fullName === null) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Card className="w-[350px]">
+          <CardHeader>
+            <CardTitle>Loading...</CardTitle>
+            <CardDescription>Please wait while we fetch your data.</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <h1>Welcome to your Dashboard</h1>
-      {/* Add your dashboard content here */}
+    <div className="container mx-auto px-4 py-8">
+      <h1 className="text-3xl font-bold mb-6">Welcome to your Dashboard, {fullName}</h1>
+      
+      {isFirstSession && (
+        <Card className="mb-8">
+          <CardHeader>
+            <CardTitle>Start Your First Session</CardTitle>
+            <CardDescription>Speak with our AI assistant to get started with your daily routine.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center space-x-2">
+              <Button variant="outline" onClick={handleNavigate}>
+                <Mic className="h-4 w-4" />
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
+      <Card>
+        <CardHeader>
+          <CardTitle>Quick Actions</CardTitle>
+        </CardHeader>
+        <CardContent className="grid gap-6">
+          <div className="flex items-center space-x-4">
+            <Link
+                className="text-lg px-8 py-4 bg-blue-600"
+                href="/support"
+              >
+              Get Support
+            </Link>
+            <Link href="/account">
+              <User className="mr-2 h-4 w-4" /> Profile
+            </Link>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 };

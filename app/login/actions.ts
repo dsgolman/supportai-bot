@@ -15,14 +15,27 @@ export async function login(formData: FormData) {
     password: formData.get("password") as string,
   };
 
-  const { error } = await supabase.auth.signInWithPassword(data);
+  const { error, data: session } = await supabase.auth.signInWithPassword(data);
 
   if (error) {
     redirect("/error");
   }
 
+  const user = session.user;
+
+  // Check if user has completed onboarding
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('is_onboarded')
+    .eq('id', user?.id)
+    .single();
+
+  if (profileError || !profile.is_onboarded) {
+    redirect('/onboarding');
+  }
+
   revalidatePath("/", "layout");
-  redirect("/account");
+  redirect("/dashboard");
 }
 
 export async function signup(formData: FormData) {
@@ -35,10 +48,23 @@ export async function signup(formData: FormData) {
     password: formData.get("password") as string,
   };
 
-  const { error } = await supabase.auth.signUp(data);
+  const { error, data: session } = await supabase.auth.signUp(data);
 
   if (error) {
     redirect("/error");
+  }
+
+  const user = session.user;
+
+  // Check if user has completed onboarding
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('is_onboarded')
+    .eq('id', user?.id)
+    .single();
+
+  if (profileError || !profile.is_onboarded) {
+    redirect('/onboarding');
   }
 
   // Redirect to the "Check Your Email" page

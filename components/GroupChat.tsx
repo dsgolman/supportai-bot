@@ -9,8 +9,8 @@ import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/componen
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Hand, Mic, MicOff } from "lucide-react";
 import { v4 as uuidv4 } from 'uuid';
-import { LLMHelper, VoiceEvent, VoiceClientAudio, VoiceVisualizer } from 'realtime-ai';
-import { useVoiceClient, useVoiceClientEvent, useVoiceClientMediaTrack } from 'realtime-ai-react';
+import { LLMHelper, VoiceEvent } from 'realtime-ai';
+import { useVoiceClient, useVoiceClientEvent, useVoiceClientMediaTrack, VoiceVisualizer } from 'realtime-ai-react';
 
 interface Message {
   id: string;
@@ -41,7 +41,7 @@ export function GroupChat({ groupId, userId, isFirstUser }: GroupChatProps) {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const localAudioRef = useRef<HTMLAudioElement | null>(null);
   const voiceClient = useVoiceClient()!;
-  const localAudioTrack = useVoiceClientMediaTrack("audio", "local") || createFallbackLocalAudioTrack();
+  const localAudioTrack = useVoiceClientMediaTrack("audio", "local");
   const botAudioTrack = useVoiceClientMediaTrack("audio", "bot");
 
   const supabase = createClient();
@@ -114,42 +114,42 @@ export function GroupChat({ groupId, userId, isFirstUser }: GroupChatProps) {
     }
   };
 
-  (voiceClient.getHelper("llm") as LLMHelper).handleFunctionCall(async (fn: FunctionCallParams) => {
-    console.log("tool calling", fn.functionName, fn);
-    if (fn.functionName === "get_raised_hand" && fn.arguments?.groupId) {
-      const { data, error } = await supabase
-        .from('raised_hands')
-        .select('*')
-        .eq('group_id', fn.arguments.groupId)
-        .eq('raised', true)
-        .order('created_at', { ascending: true })
-        .limit(1);
+  // (voiceClient.getHelper("llm") as LLMHelper).handleFunctionCall(async (fn: FunctionCallParams) => {
+  //   console.log("tool calling", fn.functionName, fn);
+  //   if (fn.functionName === "get_raised_hand" && fn.arguments?.groupId) {
+  //     const { data, error } = await supabase
+  //       .from('raised_hands')
+  //       .select('*')
+  //       .eq('group_id', fn.arguments.groupId)
+  //       .eq('raised', true)
+  //       .order('created_at', { ascending: true })
+  //       .limit(1);
 
-      if (error) {
-        console.error('Error fetching raised hands:', error);
-        return { error: "couldn't fetch raised hands" };
-      } else {
-        const firstRaisedHand = data[0];
-        if (firstRaisedHand) {
-          const { error: updateError } = await supabase
-            .from('call_state')
-            .update({ active_speaker_id: firstRaisedHand.user_id })
-            .eq('group_id', fn.arguments.groupId);
+  //     if (error) {
+  //       console.error('Error fetching raised hands:', error);
+  //       return { error: "couldn't fetch raised hands" };
+  //     } else {
+  //       const firstRaisedHand = data[0];
+  //       if (firstRaisedHand) {
+  //         const { error: updateError } = await supabase
+  //           .from('call_state')
+  //           .update({ active_speaker_id: firstRaisedHand.user_id })
+  //           .eq('group_id', fn.arguments.groupId);
 
-          if (updateError) {
-            console.error('Error updating active speaker:', updateError);
-            return { error: "couldn't update active speaker" };
-          }
+  //         if (updateError) {
+  //           console.error('Error updating active speaker:', updateError);
+  //           return { error: "couldn't update active speaker" };
+  //         }
 
-          setActiveSpeakerId(firstRaisedHand.user_id);
-          return "Thank you for raising your hand. You can now record your message"
-        }
-      }
-    } else {
-      console.log("error tool calling");
-      return { error: "Invalid function call" };
-    }
-  });
+  //         setActiveSpeakerId(firstRaisedHand.user_id);
+  //         return "Thank you for raising your hand. You can now record your message"
+  //       }
+  //     }
+  //   } else {
+  //     console.log("error tool calling");
+  //     return { error: "Invalid function call" };
+  //   }
+  // });
 
   const createFallbackLocalAudioTrack = async () => {
     const stream = await navigator.mediaDevices.getUserMedia({ audio: true });

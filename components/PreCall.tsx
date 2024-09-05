@@ -253,7 +253,7 @@ export function PreCall({ isGroupChat, userId, onComplete }: { isGroupChat: bool
   const isReady = appState === "ready";
 
   return (
-    <Card id="precall-card" className="animate-appear max-w-lg">
+    <Card id="precall-card" className="w-full max-w-md mx-auto bg-gradient-to-br from-primary/10 to-secondary/10 backdrop-blur-sm border-none shadow-lg">
       <CardHeader id="card-header">
         <CardTitle id="card-title">{assistant?.name || "Onboarding Assistant"}</CardTitle>
         <CardDescription id="card-description">

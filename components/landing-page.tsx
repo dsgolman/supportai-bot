@@ -23,7 +23,7 @@ export function LandingPage() {
             </p>
             <Link
               className="text-lg px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white transition-colors"
-              href="/onboarding"
+              href="/login"
             >
               Start Your Health Journey
             </Link>
