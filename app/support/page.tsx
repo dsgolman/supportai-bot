@@ -2,19 +2,19 @@
 "use client";
 
 import { useEffect, useRef, useState, Suspense } from "react";
-import { useSearchParams } from "next/navigation"; // Import useSearchParams
+import { useSearchParams, useRouter } from "next/navigation"; // Import useSearchParams
 import { TooltipProvider } from "@radix-ui/react-tooltip";
 import { DailyVoiceClient } from "realtime-ai-daily";
 import { VoiceClientAudio, VoiceClientProvider } from "realtime-ai-react";
 import { LLMHelper } from "realtime-ai";
-
+import { createClient } from "@/utils/supabase/client";
 import { AssistantProvider, useAssistant } from "@/components/assistantContext";
 import { PRESET_ASSISTANTS } from "@/rtvi.config";
 import { PreCall } from "@/components/PreCall";
 import { BOT_READY_TIMEOUT, defaultConfig, defaultServices } from "@/rtvi.config";
 import { SupportGroups } from "@/components/SupportGroups";
 import { PeerCalls } from "@/components/PeerCalls";
-import withAuth from "@/utils/supabase/withAuth"; // Import the withAuth HOC
+// import withAuth from "@/utils/supabase/withAuth"; // Import the withAuth HOC
 
 interface ConfigOption {
   name: string;
@@ -32,15 +32,15 @@ type AssistantData = {
   voice: string;
 };
 
-interface SupportPageProps {
-  user: any; // Adjust according to the user data structure
-}
-
-function SupportPageContent({ user }: SupportPageProps) {
+function SupportPageContent() {
   const { assistant, setAssistant } = useAssistant(); // Add setAssistant to the context
   const [voiceClient, setVoiceClient] = useState<DailyVoiceClient | null>(null);
   const voiceClientRef = useRef<DailyVoiceClient | null>(null);
   const searchParams = useSearchParams(); // Use useSearchParams hook to access query parameters
+  const supabase = createClient();
+  const [userId, setUserId] = useState('');
+  const router = useRouter();
+  
 
   const updateConfigWithAssistantData = (config: ConfigItem[], assistantData: AssistantData): ConfigItem[] => {
     const updatedConfig = JSON.parse(JSON.stringify(config));
@@ -68,6 +68,27 @@ function SupportPageContent({ user }: SupportPageProps) {
   const onComplete = () => {
     console.log("finished")
   }
+
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const supabase = createClient();
+      const { data: { session } } = await supabase.auth.getSession();
+
+      if (session) {
+        const user = session.user;
+        // Fetch the user's full name and session count
+        if (user) {
+          setUserId(user.id);
+        }
+      } else {
+        // Redirect to login if not authenticated
+        router.push('/login');
+      }
+    };
+
+    fetchUserData();
+  }, [router]);
+
 
   useEffect(() => {
     if (assistant) {
@@ -132,7 +153,7 @@ function SupportPageContent({ user }: SupportPageProps) {
               <div id="app">
                 <PreCall 
                   isGroupChat={assistant.supportsGroupChat}
-                  userId={user.id}
+                  userId={userId}
                   onComplete={onComplete}
                 />
               </div>
@@ -146,14 +167,11 @@ function SupportPageContent({ user }: SupportPageProps) {
   );
 }
 
-// Wrap SupportPageContent with withAuth
-const AuthenticatedSupportPageContent = withAuth(SupportPageContent);
-
 export default function SupportPage() {
   return (
     <AssistantProvider>
       <Suspense fallback={<div>Loading...</div>}>
-        <AuthenticatedSupportPageContent />
+        <SupportPageContent />
       </Suspense>
     </AssistantProvider>
   );
