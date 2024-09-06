@@ -14,7 +14,7 @@ export function SupportGroups() {
 
   const handleJoinGroup = (index: number) => {
     setAssistant(groupChatAssistants[index]);
-    // router.push(`/group/${PRESET_ASSISTANTS[index].name}`); // Navigate to the group page
+    router.push(`/group/${PRESET_ASSISTANTS[index].id}`); // Navigate to the group page
   };
 
   const groupChatAssistants = PRESET_ASSISTANTS.filter(assistant => assistant.supportsGroupChat);

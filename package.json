@@ -19,8 +19,10 @@
     "agora-rtc-sdk-ng": "^4.22.0",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
+    "hume": "^0.8.8",
     "lucide-react": "^0.435.0",
     "next": "14.2.5",
+    "phoenix": "^1.7.14",
     "radix-ui": "^1.0.1",
     "react": "^18",
     "react-dom": "^18",
@@ -30,7 +32,8 @@
     "recorder-js": "^1.0.7",
     "tailwind-merge": "^2.5.2",
     "tailwindcss-animate": "^1.0.7",
-    "uuid": "^10.0.0"
+    "uuid": "^10.0.0",
+    "wavesurfer.js": "^7.8.4"
   },
   "devDependencies": {
     "@types/node": "^20",
