@@ -4,7 +4,7 @@ let socket = null;
 
 export function getSocket(userId) {
   if (!socket) {
-    socket = new Socket(process.env.SOCKET_URL, { params: { userId: userId } });
+    socket = new Socket(process.env.NEXT_PUBLIC_SOCKET_URL, { params: { userId: userId } });
     socket.connect();
   }
   return socket;
