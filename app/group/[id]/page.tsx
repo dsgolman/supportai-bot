@@ -29,7 +29,7 @@ interface Message {
   user_id: string;
   content: string;
   created_at: string;
-  group_id: string;
+  group_id: string | null;
 }
 
 const GroupAudioRoom = () => {
@@ -62,7 +62,7 @@ const GroupAudioRoom = () => {
 
         const currentUserId = session.user.id;
         setUserId(currentUserId);
-        const ch = getChannel(currentUserId, groupId);
+        const ch = getChannel(currentUserId);
         setChannel(ch);
 
         const handleNewMessage = (payload: { body: string, user_id: string }) => {
