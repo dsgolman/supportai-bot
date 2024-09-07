@@ -2,16 +2,16 @@ import { Socket } from 'phoenix';
 
 let socket = null;
 
-export function getSocket() {
+export function getSocket(userId) {
   if (!socket) {
-    socket = new Socket("ws://localhost:4000/socket", { params: { token: window.userToken } });
+    socket = new Socket(process.env.SOCKET_URL, { params: { userId: userId } });
     socket.connect();
   }
   return socket;
 }
 
-export function getChannel() {
-  const socket = getSocket();
+export function getChannel(userId) {
+  const socket = getSocket(userId);
   const channel = socket.channel("evi:lobby", {});
 
   channel.join()

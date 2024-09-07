@@ -1,15 +1,28 @@
 "use client";
 
+import { Hume } from 'hume';
 import { useEffect, useState, useRef } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { createClient } from '@/utils/supabase/client';
 import { getChannel } from '@/utils/socket';
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "@/components/ui/card";
-import WaveSurfer from 'wavesurfer.js';
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { v4 as uuidv4 } from 'uuid';
+import SpeechRecognitionComponent from '@/components/SpeechRecognition';
+import { Howl } from 'howler';
+import { Send, User, Bot, Users, MessageSquare, Hand } from 'lucide-react';
+import { createClient } from "@/utils/supabase/client";
+
+interface Participant {
+  id: string;
+  name: string;
+  avatar: string;
+  isSpeaking: boolean;
+  isBot: boolean;
+  role: 'speaker' | 'listener';
+}
 
 interface Message {
   id: string;
@@ -17,236 +30,282 @@ interface Message {
   content: string;
   created_at: string;
   group_id: string;
-  audio_url?: string;
 }
 
-const GroupChatPage = () => {
+const GroupAudioRoom = () => {
   const searchParams = useSearchParams();
-  const groupId = searchParams.get('id'); // Get the groupId from the URL
+  const groupId = searchParams.get('id');
   const [channel, setChannel] = useState<any>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState<string>('');
+  const [participants, setParticipants] = useState<Participant[]>([
+    { id: 'bot', name: 'AI Assistant', avatar: '/bot-avatar.png', isSpeaking: false, isBot: true, role: 'speaker' },
+    { id: 'user1', name: 'You', avatar: '/user-avatar.png', isSpeaking: false, isBot: false, role: 'speaker' },
+    { id: 'user2', name: 'Alice', avatar: '/alice-avatar.png', isSpeaking: false, isBot: false, role: 'listener' },
+    { id: 'user3', name: 'Bob', avatar: '/bob-avatar.png', isSpeaking: false, isBot: false, role: 'listener' },
+  ]);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const [audioData, setAudioData] = useState<string | null>(null);
-  const [isRecording, setIsRecording] = useState<boolean>(false);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const waveformRef = useRef<HTMLDivElement | null>(null);
-  const wavesurferRef = useRef<WaveSurfer | null>(null);
-  const audioChunksRef = useRef<Blob[]>([]); // Use ref for chunks
+  const audioQueueRef = useRef<string[]>([]);
+  const isPlayingRef = useRef<boolean>(false);
+  const supabase = createClient();
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
-    // Initialize and join the WebSocket channel
-    const ch = getChannel();
-    setChannel(ch);
+    const fetchSessionAndInitializeChannel = async () => {
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        if (!session) {
+          console.error("No active session found");
+          return;
+        }
 
-    // Listen for incoming messages
-    const handleNewMessage = (payload: { body: string }) => {
-      console.log("Received message:", payload);
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        { id: uuidv4(), user_id: 'bot', content: payload.body, created_at: new Date().toISOString(), group_id: groupId }
-      ]);
-    };
+        const currentUserId = session.user.id;
+        setUserId(currentUserId);
+        const ch = getChannel(currentUserId, groupId);
+        setChannel(ch);
 
-    const handleBotMessage = (payload: { response: string }) => {
-      console.log("Bot response received:", payload);
-      setMessages((prevMessages) => [
-        ...prevMessages,
-        { id: uuidv4(), user_id: 'bot', content: payload.response, created_at: new Date().toISOString(), group_id: groupId }
-      ]);
-    };
+        const handleNewMessage = (payload: { body: string, user_id: string }) => {
+          console.log("Received new_message event:", payload);
+          addMessage(payload.user_id, payload.body);
+          updateParticipantSpeakingStatus(payload.user_id, true);
+        };
 
-    ch.on("new_message", handleNewMessage);
-    ch.on("bot_message", handleBotMessage);
+        const handleBotMessage = (payload: { message: string }) => {
+          console.log("Received bot_message event:", payload);
+          addMessage('bot', payload.message);
+          updateParticipantSpeakingStatus('bot', true);
+        };
 
-    ch.on("audio_output", payload => {
-      console.log("Audio output received:", payload);
-      setAudioData(payload.data);  // Handle audio data (e.g., play it)
-      if (wavesurferRef.current) {
-        wavesurferRef.current.load(`data:audio/wav;base64,${payload.data}`);
+        const handleAudioOutput = (payload: { data: string }) => {
+          console.log("Received audio_output event:", payload);
+          const audioData = `data:audio/wav;base64,${payload.data}`;
+          audioQueueRef.current.push(audioData);
+          if (!isPlayingRef.current) {
+            playNextAudio();
+          }
+        };
+
+        ch.on("new_message", handleNewMessage);
+        ch.on("bot_message", handleBotMessage);
+        ch.on("audio_output", handleAudioOutput);
+
+        return () => {
+          ch.off("new_message", handleNewMessage);
+          ch.off("bot_message", handleBotMessage);
+          ch.off("audio_output", handleAudioOutput);
+          ch.leave();
+        };
+      } catch (error) {
+        console.error("Error fetching session or initializing channel:", error);
       }
+    };
+
+    fetchSessionAndInitializeChannel();
+  }, [groupId, supabase]);
+
+  const addMessage = (userId: string, content: string) => {
+    setMessages(prevMessages => [
+      ...prevMessages,
+      { id: uuidv4(), user_id: userId, content, created_at: new Date().toISOString(), group_id: groupId }
+    ]);
+  };
+
+  const updateParticipantSpeakingStatus = (userId: string, isSpeaking: boolean) => {
+    setParticipants(prevParticipants =>
+      prevParticipants.map(p =>
+        p.id === userId ? { ...p, isSpeaking } : p
+      )
+    );
+  };
+
+  const playNextAudio = () => {
+    if (audioQueueRef.current.length === 0) {
+      isPlayingRef.current = false;
+      updateParticipantSpeakingStatus('bot', false);
+      return;
+    }
+
+    isPlayingRef.current = true;
+    updateParticipantSpeakingStatus('bot', true);
+    const audioData = audioQueueRef.current.shift()!;
+
+    const sound = new Howl({
+      src: [audioData],
+      format: ['wav'],
+      onend: () => {
+        playNextAudio();
+      },
+      onloaderror: (id, error) => {
+        console.error("Error loading audio:", error);
+        updateParticipantSpeakingStatus('bot', false);
+      },
+      onplayerror: (id, error) => {
+        console.error("Error playing audio:", error);
+        updateParticipantSpeakingStatus('bot', false);
+      },
     });
 
-    // Clean up the channel when the component unmounts
-    return () => {
-      ch.off("new_message", handleNewMessage);
-      ch.off("bot_message", handleBotMessage);
-      ch.leave();
-    };
-  }, []);
+    sound.play();
+  };
 
-  useEffect(() => {
-    if (waveformRef.current) {
-      const wavesurfer = WaveSurfer.create({
-        container: waveformRef.current,
-        waveColor: 'violet',
-        progressColor: 'purple',
-        height: 80,
+  async function handleToolCallMessage(
+    toolCallMessage: Hume.empathicVoice.ToolCallMessage,
+    socket: Hume.empathicVoice.chat.ChatSocket): Promise<void> {
+    if (toolCallMessage.name === "raiseHand") {
+      // 1. Parse the parameters from the Tool Call message
+      const args = JSON.parse(toolCallMessage.parameters) as {
+        userId: string;
+      };
+      // 2. Extract the individual arguments
+      const { userId } = args;
+      // 3. Call fetch weather function with extracted arguments
+    //   await handleRaiseHand(userId);
+      // 4. Construct a Tool Response message containing the result
+      const toolResponseMessage = {
+        type: "tool_response",
+        toolCallId: toolCallMessage.toolCallId,
+        content: "You may now speak",
+      };
+      // 5. Send Tool Response message to the WebSocket
+    //   socket.sendToolResponseMessage(toolResponseMessage);
+
+      channel.push("message", { toolResponseMessage })
+      .receive("ok", (resp: any) => {
+        console.log("Message sent successfully:", resp);
+        // addMessage(userId, message);
+        // updateParticipantSpeakingStatus(userId, true);
+        // setTimeout(() => updateParticipantSpeakingStatus(userId, false), 3000);
+      })
+      .receive("error", (resp: any) => {
+        console.log("Failed to send message:", resp);
       });
-      wavesurferRef.current = wavesurfer;
     }
-  }, []);
+  }
 
   const sendWebSocketMessage = (message: string) => {
-    if (!channel) return;  // Ensure the channel is initialized
-    console.log(message);
-    // Send message to the server
-    channel.push("message", { body: message, type: "text" })
+    if (!channel || message.trim() === '') return;
+
+    console.log("Sending message:", message);
+    channel.push("message", { body: message, type: "text", user_id: userId })
       .receive("ok", (resp: any) => {
-        console.log("Message sent:", resp);
-        // Add user message to the local state
-        setMessages((prevMessages) => [
-          ...prevMessages,
-          { id: uuidv4(), user_id: 'user', content: message, created_at: new Date().toISOString(), group_id: groupId }
-        ]);
+        console.log("Message sent successfully:", resp);
+        addMessage(userId, message);
+        updateParticipantSpeakingStatus(userId, true);
+        setTimeout(() => updateParticipantSpeakingStatus(userId, false), 3000);
       })
       .receive("error", (resp: any) => {
         console.log("Failed to send message:", resp);
       });
   };
 
-  const handleAudioChunk = (audioChunk: Blob) => {
-    audioChunksRef.current.push(audioChunk);
-  };
-
-  const startRecording = async () => {
-    if (!navigator.mediaDevices) {
-      console.error("Media devices are not available.");
-      return;
-    }
-  
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm' });
-      mediaRecorderRef.current = mediaRecorder;
-  
-      mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) {
-          handleAudioChunk(event.data); // Send chunk immediately
-        }
-      };
-  
-      mediaRecorder.start(100); // Capture chunks every 500ms
-      setIsRecording(true);
-
-      // Notify the server that the user started speaking
-      channel?.push("user_still_speaking", { event: 'user_still_speaking' });
-
-      mediaRecorder.onstop = () => {
-        // Notify the server that the user stopped speaking
-        // channel?.push("user_stopped_speaking", { event: 'user_stopped_speaking' });
-        setIsRecording(false);
-      };
-  
-    } catch (error) {
-      console.error("Error accessing microphone:", error);
+  const handleSpeechRecognitionResult = (transcript: string) => {
+    console.log("Speech recognition result:", transcript);
+    if (transcript.trim() !== '') {
+      sendWebSocketMessage(transcript);
     }
   };
-  
-  const stopRecording = async () => {
-    if (mediaRecorderRef.current) {
-      mediaRecorderRef.current.stop();
-  
-      // Function to send a single audio chunk and return a Promise
-      const sendChunk = (chunk: Blob) => {
-        return new Promise<void>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.onloadend = () => {
-            const base64data = reader.result as string;
-            channel.push("audio_chunk", { data: base64data?.split(',')[1], type: "audio" })
-              .receive("ok", () => resolve())
-              .receive("error", (error) => reject(error));
-          };
-          reader.readAsDataURL(chunk);
-        });
-      };
-  
-      // Send all collected chunks to the server and wait for all to complete
-      const sendAllChunks = async () => {
-        try {
-          await Promise.all(audioChunksRef.current.map(sendChunk));
-          // Notify the server that the user stopped speaking after all chunks are sent
-          channel?.push("user_stopped_speaking", { event: 'user_stopped_speaking' });
-        } catch (error) {
-          console.error("Failed to send one or more audio chunks:", error);
-        } finally {
-          // Clear the audioChunksRef array
-          audioChunksRef.current = [];
-          setIsRecording(false);
-        }
-      };
-  
-      sendAllChunks();
-    }
-  };  
-  
+
+  const handleRaiseHand = (userId: string) => {
+    if (!channel || !userId) return;
+
+    const message = `user #${userId} raised their hand`;
+    console.log("Sending raise hand message:", message);
+    sendWebSocketMessage(message);
+  };
+
   useEffect(() => {
     if (scrollAreaRef.current) {
       scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
     }
   }, [messages]);
 
-  useEffect(() => {
-    const handleAudioMessage = (payload: { data: string }) => {
-      console.log("Audio message received:", payload);
-      const audioData = `data:audio/wav;base64,${payload.data}`;
-      const audio = new Audio(audioData);
-      audio.playbackRate = 1.0; // Ensure the playback rate is set to normal speed
-      audio.play();
-    };
-
-    if (channel) {
-      channel.on("audio_message", handleAudioMessage);
-    }
-
-    return () => {
-      if (channel) {
-        channel.off("audio_message", handleAudioMessage);
-      }
-    };
-  }, [channel]);
-
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Group Chat</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <ScrollArea ref={scrollAreaRef} className="h-[500px] overflow-y-auto">
-          <div>
-            {messages.map((message) => (
-              <div
-                key={message.id}
-                className={`mb-2 p-2 border-b border-gray-200 ${message.user_id === 'user' ? 'text-blue-500' : 'text-gray-500'}`}
-              >
-                <div className="font-semibold">{message.user_id === 'user' ? 'You' : 'Bot'}</div>
-                <div>{message.content}</div>
-                {message.audio_url && <audio controls src={message.audio_url} />}
+    <div className="container mx-auto p-4">
+      <Card className="w-full max-w-6xl mx-auto">
+        <CardHeader>
+          <CardTitle className="text-2xl font-bold flex items-center">
+            <Users className="mr-2" /> Audio Room
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col md:flex-row gap-4">
+          <div className="w-full md:w-2/3 space-y-4">
+            <div className="bg-gray-100 rounded-lg p-4">
+              <h3 className="text-lg font-semibold mb-2">Speakers</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {participants.filter(p => p.role === 'speaker').map((participant) => (
+                  <div key={participant.id} className="flex flex-col items-center">
+                    <Avatar className={`w-16 h-16 ${participant.isSpeaking ? 'ring-2 ring-primary ring-offset-2' : ''}`}>
+                      <AvatarImage src={participant.avatar} alt={participant.name} />
+                      <AvatarFallback>{participant.isBot ? <Bot /> : <User />}</AvatarFallback>
+                    </Avatar>
+                    <span className="mt-2 font-medium text-sm">{participant.name}</span>
+                    {participant.isSpeaking && (
+                      <span className="text-xs text-primary animate-pulse">Speaking</span>
+                    )}
+                  </div>
+                ))}
               </div>
-            ))}
+            </div>
+            <div className="bg-gray-100 rounded-lg p-4">
+              <h3 className="text-lg font-semibold mb-2">Listeners</h3>
+              <div className="grid grid-cols-2 gap-4">
+                {participants.filter(p => p.role === 'listener').map((participant) => (
+                  <div key={participant.id} className="flex flex-col items-center">
+                    <Avatar className="w-12 h-12">
+                      <AvatarImage src={participant.avatar} alt={participant.name} />
+                      <AvatarFallback>{participant.isBot ? <Bot /> : <User />}</AvatarFallback>
+                    </Avatar>
+                    <span className="mt-1 font-medium text-xs">{participant.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex justify-center space-x-4">
+              <Button variant="outline" onClick={handleRaiseHand(userId)}>
+                <Hand className="w-4 h-4 mr-2" />
+                Raise Hand
+              </Button>
+              <SpeechRecognitionComponent onResult={handleSpeechRecognitionResult} />
+            </div>
           </div>
-        </ScrollArea>
-        {audioData && <audio src={`data:audio/wav;base64,${audioData}`} autoPlay />}
-        <div ref={waveformRef} />
-      </CardContent>
-      <CardFooter>
-        <Input
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          placeholder="Type your message"
-        />
-        <Button type="submit" onClick={() => {
-          sendWebSocketMessage(newMessage);
-          setNewMessage(''); // Clear input after sending
-        }}>
-          Send
-        </Button>
-        <Button onClick={isRecording ? stopRecording : startRecording}>
-          {isRecording ? "Stop Recording" : "Start Recording"}
-        </Button>
-      </CardFooter>
-    </Card>
+          <div className="w-full md:w-1/3 border-l pl-4">
+            <div className="flex items-center mb-2">
+              <MessageSquare className="w-5 h-5 mr-2" />
+              <h3 className="text-lg font-semibold">Chat</h3>
+            </div>
+            <ScrollArea className="h-[400px] pr-4" ref={scrollAreaRef}>
+              {messages.map(message => (
+                <div
+                  key={message.id}
+                  className={`mb-2 p-2 rounded-lg ${message.user_id === userId ? 'bg-blue-100' : 'bg-gray-100'}`}
+                >
+                  <p className="text-xs font-semibold">{participants.find(p => p.id === message.user_id)?.name}</p>
+                  <p className="text-sm">{message.content}</p>
+                </div>
+              ))}
+            </ScrollArea>
+            <div className="mt-4 flex space-x-2">
+              <Input
+                value={newMessage}
+                onChange={e => setNewMessage(e.target.value)}
+                placeholder="Type your message"
+                className="flex-grow"
+              />
+              <Button
+                onClick={() => {
+                  sendWebSocketMessage(newMessage);
+                  setNewMessage('');
+                }}
+              >
+                <Send className="w-4 h-4" />
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 
-export default GroupChatPage;
+export default GroupAudioRoom;
