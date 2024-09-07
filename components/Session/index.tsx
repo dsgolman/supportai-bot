@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useState } from "react";
 import { TransportState, VoiceEvent } from "realtime-ai";
-import { useVoiceClient, useVoiceClientEvent, VoiceVisualizer } from "realtime-ai-react";
+import { useVoiceClient, useVoiceClientEvent } from "realtime-ai-react";
 import { Button } from "../ui/button";
 import { Card, CardHeader, CardTitle, CardContent, CardFooter } from "../ui/card";
 import TranscriptOverlay from "./TranscriptOverlay";
@@ -55,10 +55,10 @@ export function Session({ state, onLeave, startAudioOff = false }: SessionProps)
       <CardContent className="space-y-6">
         <div className="relative h-40 rounded-lg overflow-hidden bg-black/5">
           <div className="absolute inset-0 flex items-center justify-center">
-            <VoiceVisualizer 
+            {/* <VoiceVisualizer 
               participantType="bot" 
               barColor="rgba(var(--primary), 0.7)"
-            />
+            /> */}
           </div>
         </div>
         <TranscriptOverlay className="bg-white/80 rounded-lg p-4 max-h-100 overflow-y-auto" />

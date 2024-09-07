@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff } from 'lucide-react';
 
@@ -8,46 +8,56 @@ interface SpeechRecognitionProps {
   onResult: (transcript: string) => void;
 }
 
+// Declare global window properties for SpeechRecognition
+declare global {
+  interface Window {
+    SpeechRecognition: any;
+    webkitSpeechRecognition: any;
+  }
+}
+
 const SpeechRecognitionComponent: React.FC<SpeechRecognitionProps> = ({ onResult }) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
-  const recognitionRef = useRef<SpeechRecognition | null>(null);
+  let recognition: any = null;
 
   useEffect(() => {
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (SpeechRecognition) {
-      recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = 'en-US';
+    // Fallback for different browsers
+    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+    // @ts-ignore
+    recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 
-      recognitionRef.current.onresult = (event) => {
+    if (recognition) {
+      recognition = new recognition();
+      recognition.continuous = true;
+      recognition.interimResults = true;
+      recognition.lang = 'en-US';
+
+      recognition.onresult = (event: any) => {
         const currentTranscript = Array.from(event.results)
-          .map(result => result[0].transcript)
+          .map((result: any) => result[0].transcript)
           .join('');
         setTranscript(currentTranscript);
       };
 
-      recognitionRef.current.onerror = (event) => {
-        console.error('Speech recognition error', event.error);
+      recognition.onerror = (event: any) => {
+        console.error('Speech recognition error', event);
       };
     }
 
     return () => {
-      if (recognitionRef.current) {
-        recognitionRef.current.abort();
-      }
+      recognition?.abort();
     };
   }, []);
 
   const toggleListening = () => {
     if (isListening) {
-      recognitionRef.current?.stop();
+      recognition?.stop();
       onResult(transcript);
       setTranscript('');
     } else {
       setTranscript('');
-      recognitionRef.current?.start();
+      recognition?.start();
     }
     setIsListening(!isListening);
   };

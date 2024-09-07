@@ -104,14 +104,18 @@ const GroupAudioRoom = () => {
     fetchSessionAndInitializeChannel();
   }, [groupId, supabase]);
 
-  const addMessage = (userId: string, content: string) => {
+  function addMessage(userId: string | null, content: string) {
+    if (userId === null) {
+      console.error("User ID is null. Cannot add message.");
+      return;
+    }
     setMessages(prevMessages => [
       ...prevMessages,
       { id: uuidv4(), user_id: userId, content, created_at: new Date().toISOString(), group_id: groupId }
     ]);
   };
 
-  const updateParticipantSpeakingStatus = (userId: string, isSpeaking: boolean) => {
+  const updateParticipantSpeakingStatus = (userId:  string | null, isSpeaking: boolean) => {
     setParticipants(prevParticipants =>
       prevParticipants.map(p =>
         p.id === userId ? { ...p, isSpeaking } : p
@@ -206,7 +210,7 @@ const GroupAudioRoom = () => {
     }
   };
 
-  const handleRaiseHand = (userId: string) => {
+  const handleRaiseHand = (userId: string | null ) => {
     if (!channel || !userId) return;
 
     const message = `user #${userId} raised their hand`;
@@ -262,7 +266,7 @@ const GroupAudioRoom = () => {
               </div>
             </div>
             <div className="flex justify-center space-x-4">
-              <Button variant="outline" onClick={handleRaiseHand(userId)}>
+              <Button variant="outline" onClick={() => handleRaiseHand(userId)}>
                 <Hand className="w-4 h-4 mr-2" />
                 Raise Hand
               </Button>

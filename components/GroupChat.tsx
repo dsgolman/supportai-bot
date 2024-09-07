@@ -10,7 +10,7 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Hand, Mic, MicOff } from "lucide-react";
 import { v4 as uuidv4 } from 'uuid';
 import { LLMHelper, VoiceEvent } from 'realtime-ai';
-import { useVoiceClient, useVoiceClientEvent, useVoiceClientMediaTrack, VoiceVisualizer } from 'realtime-ai-react';
+import { useVoiceClient, useVoiceClientEvent, useVoiceClientMediaTrack } from 'realtime-ai-react';
 
 interface Message {
   id: string;
