@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Mic, MicOff } from 'lucide-react';
 
@@ -8,56 +8,54 @@ interface SpeechRecognitionProps {
   onResult: (transcript: string) => void;
 }
 
-// Declare global window properties for SpeechRecognition
-declare global {
-  interface Window {
-    SpeechRecognition: any;
-    webkitSpeechRecognition: any;
-  }
-}
-
 const SpeechRecognitionComponent: React.FC<SpeechRecognitionProps> = ({ onResult }) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
-  let recognition: any = null;
+  // Ref for SpeechRecognition instance
+  const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   useEffect(() => {
     // Fallback for different browsers
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (SpeechRecognition) {
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = true;
+      recognitionRef.current.interimResults = true;
+      recognitionRef.current.lang = 'en-US';
 
-    if (recognition) {
-      recognition = new recognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = 'en-US';
-
-      recognition.onresult = (event: any) => {
+      recognitionRef.current.onresult = (event) => {
+        // Process speech recognition results
         const currentTranscript = Array.from(event.results)
-          .map((result: any) => result[0].transcript)
+          .map(result => result[0].transcript)
           .join('');
         setTranscript(currentTranscript);
       };
 
-      recognition.onerror = (event: any) => {
-        console.error('Speech recognition error', event);
+      recognitionRef.current.onerror = (event) => {
+        console.error('Speech recognition error:', event.error);
       };
+    } else {
+      console.error('Speech Recognition not supported in this browser.');
     }
 
+    // Cleanup on component unmount
     return () => {
-      recognition?.abort();
+      if (recognitionRef.current) {
+        recognitionRef.current.abort();
+      }
     };
   }, []);
 
   const toggleListening = () => {
     if (isListening) {
-      recognition?.stop();
+      // Stop listening and send the result
+      recognitionRef.current?.stop();
       onResult(transcript);
       setTranscript('');
     } else {
+      // Start listening
       setTranscript('');
-      recognition?.start();
+      recognitionRef.current?.start();
     }
     setIsListening(!isListening);
   };
