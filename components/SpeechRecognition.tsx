@@ -8,57 +8,120 @@ interface SpeechRecognitionProps {
   onResult: (transcript: string) => void;
 }
 
+interface SpeechRecognitionEvent extends Event {
+  results: SpeechRecognitionResultList;
+}
+
+interface SpeechRecognitionResultList {
+  [index: number]: SpeechRecognitionResult;
+  length: number;
+}
+
+interface SpeechRecognitionResult {
+  [index: number]: SpeechRecognitionAlternative;
+  length: number;
+}
+
+interface SpeechRecognitionAlternative {
+  transcript: string;
+  confidence: number;
+}
+
+interface SpeechRecognition extends EventTarget {
+  continuous: boolean;
+  interimResults: boolean;
+  lang: string;
+  start: () => void;
+  stop: () => void;
+  abort: () => void;
+  onerror: (event: Event) => void;
+  onresult: (event: SpeechRecognitionEvent) => void;
+}
+
+declare global {
+  interface Window {
+    SpeechRecognition: {
+      new (): SpeechRecognition;
+    };
+    webkitSpeechRecognition: {
+      new (): SpeechRecognition;
+    };
+  }
+}
+
 const SpeechRecognitionComponent: React.FC<SpeechRecognitionProps> = ({ onResult }) => {
   const [isListening, setIsListening] = useState(false);
   const [transcript, setTranscript] = useState('');
-  // Ref for SpeechRecognition instance
+  const [isSupported, setIsSupported] = useState(false);
   const recognitionRef = useRef<SpeechRecognition | null>(null);
 
   useEffect(() => {
-    // Fallback for different browsers
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (SpeechRecognition) {
       recognitionRef.current = new SpeechRecognition();
-      recognitionRef.current.continuous = true;
-      recognitionRef.current.interimResults = true;
-      recognitionRef.current.lang = 'en-US';
+      
+      // Use the non-null assertion operator `!` to tell TypeScript this is not null anymore
+      recognitionRef.current!.continuous = true;
+      recognitionRef.current!.interimResults = true;
+      recognitionRef.current!.lang = 'en-US';
 
-      recognitionRef.current.onresult = (event) => {
-        // Process speech recognition results
+      recognitionRef.current!.onresult = (event: SpeechRecognitionEvent): void => {
         const currentTranscript = Array.from(event.results)
           .map(result => result[0].transcript)
           .join('');
         setTranscript(currentTranscript);
       };
 
-      recognitionRef.current.onerror = (event) => {
-        console.error('Speech recognition error:', event.error);
+      recognitionRef.current!.onerror = (event: Event): void => {
+        console.error('Speech recognition error', event);
+        setIsListening(false);
       };
+
+      setIsSupported(true);
     } else {
-      console.error('Speech Recognition not supported in this browser.');
+      setIsSupported(false);
+      console.error('Speech recognition is not supported in this browser');
     }
 
-    // Cleanup on component unmount
-    return () => {
+    return (): void => {
       if (recognitionRef.current) {
         recognitionRef.current.abort();
       }
     };
   }, []);
 
-  const toggleListening = () => {
-    if (isListening) {
-      // Stop listening and send the result
-      recognitionRef.current?.stop();
+  const startListening = (): void => {
+    if (recognitionRef.current) {
+      recognitionRef.current.start();
+      setIsListening(true);
+    }
+  };
+
+  const stopListening = (): void => {
+    if (recognitionRef.current) {
+      recognitionRef.current.stop();
+      setIsListening(false);
       onResult(transcript);
       setTranscript('');
-    } else {
-      // Start listening
-      setTranscript('');
-      recognitionRef.current?.start();
     }
-    setIsListening(!isListening);
   };
+
+  const toggleListening = (): void => {
+    if (isListening) {
+      stopListening();
+    } else {
+      startListening();
+    }
+  };
+
+  if (!isSupported) {
+    return (
+      <Button disabled className="flex items-center space-x-2">
+        <Mic size={20} />
+        <span>Speech recognition not supported</span>
+      </Button>
+    );
+  }
 
   return (
     <Button 

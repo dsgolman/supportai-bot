@@ -12,43 +12,63 @@ export function getSocket(userId, groupId) {
 
 export function getChannel(userId, groupId) {
   const socket = getSocket(userId, groupId);
-  const channel = socket.channel("evi:lobby", {userId, groupId});
 
-  channel.join()
-    .receive("ok", resp => console.log("Joined successfully", resp))
-    .receive("error", resp => console.log("Unable to join", resp));
+  // Join WebRTC channel
+  const webrtcChannel = socket.channel(`webrtc:${groupId}`, { userId });
+  webrtcChannel.join()
+    .receive("ok", resp => console.log("Joined WebRTC channel", resp))
+    .receive("error", resp => console.log("Unable to join WebRTC channel", resp));
 
-  channel.on("bot_message", (message) => {
-    try {
-      console.log("Received message:", message);
-    } catch (error) {
-      console.error("Error serializing message:", error);
+  // WebRTC specific events
+  webrtcChannel.on("offer", payload => {
+    console.log("Received offer", payload);
+  });
+  webrtcChannel.on("answer", payload => {
+    console.log("Received answer", payload);
+  });
+  webrtcChannel.on("ice_candidate", payload => {
+    console.log("Received ICE candidate", payload);
+  });
+
+  // Join Evi lobby channel for messaging/hand raising
+  const eviChannel = socket.channel(`evi:lobby`, { userId, groupId });
+  eviChannel.join()
+    .receive("ok", resp => console.log("Joined Evi lobby", resp))
+    .receive("error", resp => console.log("Unable to join Evi lobby", resp));
+
+  eviChannel.on("user_raised_hand", payload => {
+    console.log("User raised hand", payload);
+    // humeChannel.push("user_message", { user_id: userId, content })
+    //   .receive("ok", (resp: any) => {
+    //     console.log("Message sent:", resp);
+    //   })
+    //   .receive("error", (err: any) => {
+    //     console.error("Error sending message:", err);
+    //   });
+  });
+
+  eviChannel.on("active_speaker", payload => {
+    console.log("Active speaker set", payload);
+  });
+
+  return { webrtcChannel, eviChannel };
+}
+
+
+export function createPeerConnection(webrtcChannel) {
+  const pc = new RTCPeerConnection({
+    iceServers: [{ urls: 'stun:stun.l.google.com:19302' }]
+  });
+
+  pc.onicecandidate = event => {
+    if (event.candidate) {
+      webrtcChannel.push("ice_candidate", { candidate: event.candidate });
     }
-  });
+  };
 
-  channel.on('user_joined', payload => {
-    console.log(`User ${payload.userId} joined`);
-  });
-  
-  channel.on('user_raised_hand', payload => {
-    console.log(`User ${payload.userId} raised their hand`);
-  });
-  
-  channel.on('active_speaker', payload => {
-    console.log(`Active speaker is ${payload.userId}`);
-  });
-  
-  channel.on('user_left', payload => {
-    console.log(`User ${payload.userId} left`);
-  });
+  pc.ontrack = event => {
+    console.log("Received track", event.track);
+  };
 
-  channel.on("audio_output", (message) => {
-    try {
-      console.log("Received message:", message);
-    } catch (error) {
-      console.error("Error serializing message:", error);
-    }
-  });
-
-  return channel;
+  return pc;
 }

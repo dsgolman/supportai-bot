@@ -1,6 +1,5 @@
-declare global {
-    interface Window {
-      SpeechRecognition: typeof SpeechRecognition | undefined;
-      webkitSpeechRecognition: typeof SpeechRecognition | undefined;
-    }
-  }
+// global.d.ts
+interface Window {
+  SpeechRecognition: typeof SpeechRecognition;
+  webkitSpeechRecognition: typeof webkitSpeechRecognition;
+}

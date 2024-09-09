@@ -2,12 +2,12 @@
 
 import { useEffect, useState, useRef } from 'react';
 import { useParams } from 'next/navigation';
-import { getChannel } from '@/utils/socket';
+import { getChannel, createPeerConnection } from '@/utils/socket';
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Howl } from 'howler';
-import { Users, Bot, User } from 'lucide-react';
 import { v4 as uuidv4 } from 'uuid';
+import SpeechRecognition from '@/components/SpeechRecognition'; // Adjust the path as needed
 import { createClient } from '@/utils/supabase/client'; // Adjust the path as needed
 
 interface Participant {
@@ -27,60 +27,67 @@ interface Message {
   group_id: string | null;
 }
 
-
-
 const GroupAudioRoom = () => {
   const { id: groupId } = useParams();
-  const [channel, setChannel] = useState<any>(null);
+  const [internalChannel, setInternalChannel] = useState<any>(null);
+  const [humeChannel, setHumeChannel] = useState<any>(null);
   const [messages, setMessages] = useState<Message[]>([]);
-  const [participants, setParticipants] = useState<Participant[]>([
-    { id: 'bot', name: 'AI Assistant', avatar: '/bot-avatar.png', isSpeaking: false, isBot: true, role: 'speaker' },
-    { id: 'user1', name: 'You', avatar: '/user-avatar.png', isSpeaking: false, isBot: false, role: 'speaker' },
-    { id: 'user2', name: 'Alice', avatar: '/alice-avatar.png', isSpeaking: false, isBot: false, role: 'listener' },
-    { id: 'user3', name: 'Bob', avatar: '/bob-avatar.png', isSpeaking: false, isBot: false, role: 'listener' },
-  ]);
+  const [participants, setParticipants] = useState<Participant[]>([]);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [activeSpeaker, setActiveSpeaker] = useState<string>('');
+  const [peerConnection, setPeerConnection] = useState<RTCPeerConnection | null>(null);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [isListening, setIsListening] = useState(false);
+  const [handRaised, setHandRaised] = useState(false);
+
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const audioQueueRef = useRef<string[]>([]);
   const isPlayingRef = useRef<boolean>(false);
-  const [userId, setUserId] = useState<string | null>(null);
-  const [activeSpeaker, setActiveSpeaker] = useState<string>('');
 
   const supabase = createClient();
 
-// Function to insert a group member into Supabase
-const insertGroupMember = async (groupId: string, userId: string) => {
-  try {
-    const { error } = await supabase
-      .from('group_members')
-      .insert({ group_id: groupId, user_id: userId });
+  // Function to insert a group member into Supabase
+  // const insertGroupMember = async (groupId: string, userId: string) => {
+  //   try {
+  //     const { error } = await supabase
+  //       .from('group_members')
+  //       .insert({ group_id: groupId, user_id: userId });
 
-    if (error) {
-      console.error('Error inserting group member:', error);
-    } else {
-      console.log('Group member inserted.');
-    }
-  } catch (error) {
-    console.error('Unexpected error inserting group member:', error);
-  }
-};
+  //     if (error) {
+  //       console.error('Error inserting group member:', error);
+  //     } else {
+  //       console.log('Group member inserted.');
+  //     }
+  //   } catch (error) {
+  //     console.error('Unexpected error inserting group member:', error);
+  //   }
+  // };
 
-// Function to fetch group members from Supabase
-const fetchGroupMembers = async (groupId: string) => {
-  try {
-    const { data, error } = await supabase
-      .from('group_members')
-      .select('*')
-      .eq('group_id', groupId);
+  // Function to fetch group members from Supabase
+  // const fetchGroupMembers = async (groupId: string) => {
+  //   try {
+  //     const { data, error } = await supabase
+  //       .from('group_members')
+  //       .select('*, users(*)') // Fetch associated user details
+  //       .eq('group_id', groupId);
 
-    if (error) {
-      console.error('Error fetching group members:', error);
-    } else {
-      console.log('Group members retrieved:', data);
-    }
-  } catch (error) {
-    console.error('Unexpected error fetching group members:', error);
-  }
-};
+  //     if (error) {
+  //       console.error('Error fetching group members:', error);
+  //     } else {
+  //       const participantsData = data.map((member: any) => ({
+  //         id: member.user_id,
+  //         name: member.users.name,
+  //         avatar: member.users.avatar_url,
+  //         isSpeaking: false,
+  //         isBot: member.user_id === 'bot',
+  //         role: 'listener', // Set role based on your logic
+  //       }));
+  //       setParticipants(participantsData);
+  //     }
+  //   } catch (error) {
+  //     console.error('Unexpected error fetching group members:', error);
+  //   }
+  // };
 
   useEffect(() => {
     const fetchUserData = async () => {
@@ -89,29 +96,29 @@ const fetchGroupMembers = async (groupId: string) => {
 
       if (session) {
         const user = session.user;
-        // Fetch the user's full name and session count
         if (user) {
           setUserId(user.id);
         }
-      } else {
-        
       }
     };
 
     fetchUserData();
-  }, [userId]);
+  }, []);
 
   useEffect(() => {
-    const initializeChannel = async () => {
+    const initializeChannels = async () => {
       try {
-        const ch = getChannel(userId, groupId!);
-        setChannel(ch);
+        let { webrtcChannel, eviChannel } = getChannel(userId, groupId!);
+        setInternalChannel(webrtcChannel);
+        setHumeChannel(eviChannel);
 
-        // Insert the new member into the group_members table
-        if (groupId && userId) {
-          await insertGroupMember(groupId, userId);
-          await fetchGroupMembers(groupId); // Optionally update the participant list from Supabase
-        }
+        const pc = createPeerConnection(webrtcChannel);
+        setPeerConnection(pc);
+
+        // if (groupId && userId) {
+          // await insertGroupMember(groupId, userId);
+          // await fetchGroupMembers(groupId);
+        // }
 
         const handleNewMessage = (payload: { body: string, user_id: string }) => {
           addMessage(payload.user_id, payload.body);
@@ -125,7 +132,7 @@ const fetchGroupMembers = async (groupId: string) => {
 
         const unlockMicrophone = (payload: { userId: string }) => {
           updateParticipantSpeakingStatus(payload.userId, true);
-          setActiveSpeaker(userId);
+          setActiveSpeaker(payload.userId);
         };
 
         const handleAudioOutput = (payload: { data: string }) => {
@@ -136,32 +143,78 @@ const fetchGroupMembers = async (groupId: string) => {
           }
         };
 
-        ch.on("new_message", handleNewMessage);
-        ch.on("bot_message", handleBotMessage);
-        ch.on("user_raised_hand", unlockMicrophone);
-        ch.on("audio_output", handleAudioOutput);
+        eviChannel.on("new_message", handleNewMessage);
+        eviChannel.on("bot_message", handleBotMessage);
+        eviChannel.on("active_speaker", unlockMicrophone);
+        eviChannel.on("audio_output", handleAudioOutput);
+
+        eviChannel.on("message", (payload: { content: string }) => {
+          addMessage('bot', payload.content);
+        });
+
+        webrtcChannel.on("offer", async (payload: { sdp: RTCSessionDescriptionInit }) => {
+          await pc.setRemoteDescription(payload.sdp);
+          const answer = await pc.createAnswer();
+          await pc.setLocalDescription(answer);
+          webrtcChannel.push("answer", { sdp: answer });
+        });
+
+        webrtcChannel.on("answer", async (payload: { sdp: RTCSessionDescriptionInit }) => {
+          await pc.setRemoteDescription(payload.sdp);
+        });
+
+        webrtcChannel.on("ice_candidate", (payload: { candidate: RTCIceCandidateInit }) => {
+          pc.addIceCandidate(payload.candidate);
+        });
 
         return () => {
-          ch.off("new_message", handleNewMessage);
-          ch.off("bot_message", handleBotMessage);
-          ch.off("audio_output", handleAudioOutput);
-          ch.leave();
+          humeChannel.off("new_message", handleNewMessage);
+          humeChannel.off("bot_message", handleBotMessage);
+          humeChannel.off("audio_output", handleAudioOutput);
+          humeChannel.leave();
+          pc.close();
         };
       } catch (error) {
-        console.error("Error initializing channel:", error);
+        console.error("Error initializing channels:", error);
       }
     };
 
-    initializeChannel();
+    if (userId && groupId) {
+      initializeChannels();
+    }
   }, [userId, groupId]);
 
+  const startCall = async () => {
+    if (!peerConnection || !internalChannel) return;
+
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      setLocalStream(stream);
+      stream.getTracks().forEach(track => peerConnection.addTrack(track, stream));
+
+      const offer = await peerConnection.createOffer();
+      await peerConnection.setLocalDescription(offer);
+      internalChannel.push("offer", { sdp: offer });
+    } catch (error) {
+      console.error("Error starting call:", error);
+    }
+  };
+
   function addMessage(userId: string | null, content: string) {
-    if (!userId) return;
+    if (!userId || !groupId) return; // Ensure both userId and groupId are defined
+    
     setMessages(prevMessages => [
       ...prevMessages,
-      { id: uuidv4(), user_id: userId, content, created_at: new Date().toISOString(), group_id: groupId }
+      {
+        id: uuidv4(),
+        user_id: userId,
+        content,
+        created_at: new Date().toISOString(),
+        group_id: typeof groupId === 'string' ? groupId : null // Ensure groupId is a string
+      }
     ]);
   }
+  
 
   const updateParticipantSpeakingStatus = (userId: string | null, isSpeaking: boolean) => {
     setParticipants(prevParticipants =>
@@ -179,7 +232,6 @@ const fetchGroupMembers = async (groupId: string) => {
     }
 
     isPlayingRef.current = true;
-    updateParticipantSpeakingStatus('bot', true);
     const audioData = audioQueueRef.current.shift()!;
 
     const sound = new Howl({
@@ -188,66 +240,108 @@ const fetchGroupMembers = async (groupId: string) => {
       onend: () => {
         playNextAudio();
       },
+      onloaderror: (id, error) => {
+        console.error('Howl load error:', error);
+      },
+      onplayerror: (id, error) => {
+        console.error('Howl play error:', error);
+      },
     });
 
     sound.play();
   };
 
   const raiseHand = () => {
-    if (!channel || !userId || !groupId) return;
-    channel.push("raise_hand", { userId, groupId })
+    if (!humeChannel || !userId || !groupId) return;
+    humeChannel.push("raise_hand", { userId, groupId })
       .receive("ok", (resp: any) => {
-        console.log("Hand raise sent successfully:", resp);
+        console.log("Hand raised:", resp);
+        setHandRaised(true);
       })
-      .receive("error", (resp: any) => {
-        console.log("Failed to raise hand:", resp);
+      .receive("error", (err: any) => {
+        console.error("Error raising hand:", err);
       });
   };
 
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+  const lowerHand = () => {
+    if (!humeChannel || !userId || !groupId) return;
+    humeChannel.push("lower_hand", { userId, groupId })
+      .receive("ok", (resp: any) => {
+        console.log("Hand lowered:", resp);
+        setHandRaised(false);
+      })
+      .receive("error", (err: any) => {
+        console.error("Error lowering hand:", err);
+      });
+  };
+
+  const sendMessage = (content: string) => {
+    if (humeChannel) {
+      humeChannel.push("user_message", { type: "text", content })
+        .receive("ok", (resp: any) => {
+          console.log("Message sent:", resp);
+        })
+        .receive("error", (err: any) => {
+          console.error("Error sending message:", err);
+        });
     }
-  }, [messages]);
+  };
+  const handleSpeechRecognitionResult = (transcript: string) => {
+    if (userId) {
+      addMessage(userId, transcript);
+      sendMessage(transcript)
+    }
+  };
 
   return (
-    <div className="container mx-auto p-4">
-      <div className="w-full max-w-6xl mx-auto">
-        <h2 className="text-2xl font-bold flex items-center">
-          <Users className="mr-2" /> Audio Room
-        </h2>
-        <div className="grid grid-cols-2 gap-4">
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Speakers</h3>
-              {participants.filter(p => p.role === 'speaker').map(participant => (
-                <div key={participant.id}>
-                  <Avatar className={`w-16 h-16 ${participant.isSpeaking ? 'ring-2 ring-primary' : ''}`}>
-                    <AvatarImage src={participant.avatar} alt={participant.name} />
-                    <AvatarFallback>{participant.isBot ? <Bot /> : <User />}</AvatarFallback>
-                  </Avatar>
-                  <span>{participant.name}</span>
-                  {participant.isSpeaking && <span className="text-primary animate-pulse">Speaking</span>}
-                </div>
-              ))}
-            </div>
-            <Button onClick={raiseHand}>Raise Hand</Button>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <h3 className="text-lg font-semibold mb-2">Listeners</h3>
-              {participants.filter(p => p.role === 'listener').map(participant => (
-                <div key={participant.id}>
-                  <Avatar className="w-12 h-12">
-                    <AvatarImage src={participant.avatar} alt={participant.name} />
-                    <AvatarFallback>{participant.isBot ? <Bot /> : <User />}</AvatarFallback>
-                  </Avatar>
-                  <span>{participant.name}</span>
-                </div>
-              ))}
-            </div>
+    <div className="p-4">
+      <div className="flex">
+        {/* Chat Display */}
+        <div className="w-2/3 pr-4">
+          <div className="bg-gray-100 p-4 rounded-lg h-96 overflow-auto" ref={scrollAreaRef}>
+            {messages.map(message => (
+              <div key={message.id} className={`p-2 ${message.user_id === 'bot' ? 'bg-gray-200' : 'bg-white'}`}>
+                <div><strong>{message.user_id}</strong>: {message.content}</div>
+              </div>
+            ))}
           </div>
         </div>
+
+        {/* Participants List */}
+        <div className="w-1/3">
+          <div className="bg-gray-100 p-4 rounded-lg h-96 overflow-auto">
+            <h3 className="text-lg font-semibold">Participants</h3>
+            {participants.map(participant => (
+              <div key={participant.id} className="flex items-center p-2">
+                <Avatar>
+                  <AvatarImage src={participant.avatar} alt={participant.name} />
+                  <AvatarFallback>{participant.name[0]}</AvatarFallback>
+                </Avatar>
+                <div className="ml-2">
+                  <div className="font-medium">{participant.name}</div>
+                  {participant.isSpeaking && <div className="text-green-500">Speaking</div>}
+                  {participant.isBot && <div className="text-red-500">Bot</div>}
+                  <div className="text-sm">{participant.role}</div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Speech Recognition and Control */}
+      <div className="mt-4 flex space-x-4">
+        {activeSpeaker === userId ? <SpeechRecognition onResult={handleSpeechRecognitionResult} /> : (
+          <>
+            <Button onClick={startCall}>Start Call</Button>
+            {!handRaised ? (
+              <Button onClick={raiseHand}>Raise Hand</Button>
+            ) : (
+              <Button onClick={lowerHand}>Lower Hand</Button>
+            )}
+            
+          </>
+        )}
       </div>
     </div>
   );
