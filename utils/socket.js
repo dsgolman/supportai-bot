@@ -14,27 +14,24 @@ export function getChannel(userId, groupId) {
   const socket = getSocket(userId, groupId);
 
   // Join WebRTC channel
-  const webrtcChannel = socket.channel(`webrtc:${groupId}`, { userId });
-  webrtcChannel.join()
-    .receive("ok", resp => console.log("Joined WebRTC channel", resp))
-    .receive("error", resp => console.log("Unable to join WebRTC channel", resp));
+  // const webrtcChannel = socket.channel(`webrtc:${groupId}`, { userId });
+  // webrtcChannel.join()
+  //   .receive("ok", resp => console.log("Joined WebRTC channel", resp))
+  //   .receive("error", resp => console.log("Unable to join WebRTC channel", resp));
 
   // WebRTC specific events
-  webrtcChannel.on("offer", payload => {
-    console.log("Received offer", payload);
-  });
-  webrtcChannel.on("answer", payload => {
-    console.log("Received answer", payload);
-  });
-  webrtcChannel.on("ice_candidate", payload => {
-    console.log("Received ICE candidate", payload);
-  });
+  // webrtcChannel.on("offer", payload => {
+  //   console.log("Received offer", payload);
+  // });
+  // webrtcChannel.on("answer", payload => {
+  //   console.log("Received answer", payload);
+  // });
+  // webrtcChannel.on("ice_candidate", payload => {
+  //   console.log("Received ICE candidate", payload);
+  // });
 
   // Join Evi lobby channel for messaging/hand raising
   const eviChannel = socket.channel(`evi:lobby`, { userId, groupId });
-  eviChannel.join()
-    .receive("ok", resp => console.log("Joined Evi lobby", resp))
-    .receive("error", resp => console.log("Unable to join Evi lobby", resp));
 
   eviChannel.on("user_raised_hand", payload => {
     console.log("User raised hand", payload);
@@ -51,7 +48,7 @@ export function getChannel(userId, groupId) {
     console.log("Active speaker set", payload);
   });
 
-  return { webrtcChannel, eviChannel };
+  return { eviChannel };
 }
 
 

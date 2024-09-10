@@ -12,9 +12,9 @@ export function SupportGroups() {
   const { setAssistant } = useAssistant();
   const router = useRouter();
 
-  const handleJoinGroup = (index: number) => {
-    setAssistant(groupChatAssistants[index]);
-    router.push(`/group/${PRESET_ASSISTANTS[index].id}`); // Navigate to the group page
+  const handleJoinGroup = (id: string) => {
+    // setAssistant(groupChatAssistants[index]);
+    router.push(`/group/${id}`); // Navigate to the group page
   };
 
   const groupChatAssistants = PRESET_ASSISTANTS.filter(assistant => assistant.supportsGroupChat);
@@ -39,7 +39,7 @@ export function SupportGroups() {
               <CardContent>
                 <Button
                   variant="outline"
-                  onClick={() => handleJoinGroup(i)}
+                  onClick={() => handleJoinGroup(assistant.id)}
                 >
                   Join Group
                 </Button>

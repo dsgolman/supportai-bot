@@ -1,19 +1,19 @@
 "use client"
 
-import Link from "next/link"
 import React, { useEffect, useState } from 'react';
 import { createClient } from "@/utils/supabase/client";
 import { useRouter } from 'next/navigation';
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { Input } from "@/components/ui/input"
-import { Label } from "@/components/ui/label"
-import { Mic, Send, User } from 'lucide-react'
+import { ScrollArea } from "@/components/ui/scroll-area"
+// import { Progress } from "@/components/ui/progress"
+import { Mic, User, Calendar, BarChart, BookOpen, MessageCircle, ArrowRight, Award, Target } from 'lucide-react'
+import CrisisSupport from "@/components/CrisisSupport";
 
 const DashboardPage: React.FC = () => {
   const [fullName, setFullName] = useState<string | null>(null);
-  const [isFirstSession, setIsFirstSession] = useState(true);
-  const [message, setMessage] = useState('');
+  const [isNewUser, setIsNewUser] = useState(true);
+  const [progress, setProgress] = useState(0);
   const router = useRouter();
 
   useEffect(() => {
@@ -23,19 +23,18 @@ const DashboardPage: React.FC = () => {
 
       if (session) {
         const user = session.user;
-        // Fetch the user's full name and session count
         const { data } = await supabase
           .from('profiles')
-          .select('full_name, sessions_count')
+          .select('full_name, sessions_count, progress')
           .eq('id', user.id)
           .single();
 
         if (data) {
           setFullName(data.full_name);
-          setIsFirstSession(data.sessions_count === 0);
+          setIsNewUser(data.sessions_count === 0);
+          setProgress(data.progress || 0);
         }
       } else {
-        // Redirect to login if not authenticated
         router.push('/login');
       }
     };
@@ -43,72 +42,131 @@ const DashboardPage: React.FC = () => {
     fetchUserData();
   }, [router]);
 
-  const handleNavigate = () => {
-    router.push('/support?assistant=Daily%20Onboarding%20Bot');
+  const handleStartCoaching = () => {
+    router.push('/coaching/session');
   };
 
-  const handleSendMessage = () => {
-    // Implement sending message to bot
-    console.log('Sending message:', message);
-    setMessage('');
-  };
-
-  const handleVoiceInput = () => {
-    // Implement voice input functionality
-    console.log('Starting voice input');
-  };
-
-  if (fullName === null) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <Card className="w-[350px]">
-          <CardHeader>
-            <CardTitle>Loading...</CardTitle>
-            <CardDescription>Please wait while we fetch your data.</CardDescription>
-          </CardHeader>
-        </Card>
-      </div>
-    );
-  }
+  // if (fullName === null) {
+  //   return (
+  //     <div className="flex items-center justify-center min-h-screen bg-gradient-calm">
+  //       <Card className="w-[350px] shadow-soft">
+  //         <CardHeader>
+  //           <CardTitle className="text-gradient-primary">Loading...</CardTitle>
+  //           <CardDescription>Please wait while we fetch your data.</CardDescription>
+  //         </CardHeader>
+  //       </Card>
+  //     </div>
+  //   );
+  // }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <h1 className="text-3xl font-bold mb-6">Welcome to your Dashboard, {fullName}</h1>
-      
-      {isFirstSession && (
-        <Card className="mb-8">
-          <CardHeader>
-            <CardTitle>Start Your First Session</CardTitle>
-            <CardDescription>Speak with our AI assistant to get started with your daily routine.</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center space-x-2">
-              <Button variant="outline" onClick={handleNavigate}>
-                <Mic className="h-4 w-4" />
+    <div className="min-h-screen bg-gradient-calm p-8">
+      <div className="container mx-auto">
+        <h1 className="text-4xl font-bold mb-8 text-gradient-primary text-center">Welcome to Your Mental Health Journey, {fullName}</h1>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          {isNewUser && (
+            <Card className="col-span-full bg-gradient-positive shadow-soft">
+              <CardHeader>
+                <CardTitle className="text-2xl text-primary">Begin Your Coaching Journey</CardTitle>
+                <CardDescription>Start your first session with our AI Mental Health Coach.</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button onClick={handleStartCoaching} className="w-full btn-primary">
+                  <Mic className="mr-2 h-5 w-5" /> Start Coaching Session
+                </Button>
+              </CardContent>
+            </Card>
+          )}
+          
+          <Card className="shadow-soft">
+            <CardHeader>
+              <CardTitle className="text-primary">Your Progress</CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex items-center justify-between">
+                <span className="text-sm font-medium">Overall Progress</span>
+                <span className="text-sm font-medium">{progress}%</span>
+              </div>
+              {/* <Progress value={progress} className="w-full" /> */}
+              <p className="text-sm text-muted-foreground">Keep up the great work! Your journey to better mental health is progressing well.</p>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-soft">
+            <CardHeader>
+              <CardTitle className="text-primary">Next Steps</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2">
+                <li className="flex items-center text-muted-foreground">
+                  <Target className="mr-2 h-5 w-5 text-accent" />
+                  <span>Set your weekly goal</span>
+                </li>
+                <li className="flex items-center text-muted-foreground">
+                  <Calendar className="mr-2 h-5 w-5 text-accent" />
+                  <span>Schedule next coaching session</span>
+                </li>
+                <li className="flex items-center text-muted-foreground">
+                  <Award className="mr-2 h-5 w-5 text-accent" />
+                  <span>Complete daily mindfulness exercise</span>
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          <Card className="shadow-soft">
+            <CardHeader>
+              <CardTitle className="text-primary">Upcoming Sessions</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="space-y-2">
+                <li className="flex items-center text-muted-foreground">
+                  <Calendar className="mr-2 h-5 w-5 text-primary" />
+                  <span>AI Coaching Session - Tomorrow, 2 PM</span>
+                </li>
+                <li className="flex items-center text-muted-foreground">
+                  <Calendar className="mr-2 h-5 w-5 text-primary" />
+                  <span>Group Support Circle - Friday, 6 PM</span>
+                </li>
+              </ul>
+            </CardContent>
+          </Card>
+
+          <Card className="col-span-full shadow-soft">
+            <CardHeader>
+              <CardTitle className="text-primary">Personalized Resources</CardTitle>
+            </CardHeader>
+            <CardContent className="grid gap-4">
+              <Button variant="outline" className="w-full justify-start text-accent hover:bg-accent/10">
+                <BookOpen className="mr-2 h-5 w-5" /> Stress Management Techniques
               </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>Quick Actions</CardTitle>
-        </CardHeader>
-        <CardContent className="grid gap-6">
-          <div className="flex items-center space-x-4">
-            <Link
-                className="text-lg px-8 py-4 bg-blue-600"
-                href="/support"
-              >
-              Get Support
-            </Link>
-            <Link href="/account">
-              <User className="mr-2 h-4 w-4" /> Profile
-            </Link>
-          </div>
-        </CardContent>
-      </Card>
+              <Button variant="outline" className="w-full justify-start text-primary hover:bg-primary/10">
+                <Mic className="mr-2 h-5 w-5" /> Guided Meditation: Finding Inner Peace
+              </Button>
+              <Button variant="outline" className="w-full justify-start text-accent hover:bg-accent/10">
+                <BarChart className="mr-2 h-5 w-5" /> Mood Tracking Workshop
+              </Button>
+            </CardContent>
+          </Card>
+
+          <Card className="col-span-full shadow-soft">
+            <CardHeader>
+              <CardTitle className="text-gradient-primary">24/7 Support</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ScrollArea className="h-[200px] rounded-md border p-4">
+                <CrisisSupport />
+              </ScrollArea>
+            </CardContent>
+            <CardFooter>
+              <Button className="w-full btn-primary">
+                Connect with a Human Coach <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </CardFooter>
+          </Card>
+        </div>
+      </div>
     </div>
   );
 };

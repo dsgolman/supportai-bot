@@ -48,7 +48,7 @@ export default function LayoutWrapper({
           </div>
         </nav>
       </header>
-      <main className="container mx-auto px-4 py-8">
+      <main className="container mx-auto">
         {children}
       </main>
       <footer className="bg-blue-800 text-white py-4">

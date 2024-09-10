@@ -1,6 +1,7 @@
 import React, { useCallback, useState, useRef, useEffect } from "react";
 import { VoiceEvent } from "realtime-ai";
 import { useVoiceClientEvent } from "realtime-ai-react";
+import { cn } from "@/lib/utils";
 
 interface TranscriptOverlayProps {
   className?: string;
@@ -14,7 +15,7 @@ const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({ className = "" })
   useVoiceClientEvent(
     VoiceEvent.BotTranscript,
     useCallback((text: string) => {
-      setTranscript(prev => prev + " " + text.trim());
+      setTranscript(prev => prev + (prev ? " " : "") + text.trim());
       setIsSpeaking(true);
     }, [])
   );
@@ -44,11 +45,12 @@ const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({ className = "" })
     return words.map((word, index) => (
       <span 
         key={index} 
-        className={`inline-block mr-1 ${
+        className={cn(
+          "inline-block mr-1",
           index >= words.length - 5 && isSpeaking
-            ? 'text-primary font-semibold animate-pulse'
-            : 'text-gray-700'
-        }`}
+            ? "text-primary font-semibold animate-pulse"
+            : "text-gray-700"
+        )}
       >
         {word}
       </span>
@@ -58,9 +60,16 @@ const TranscriptOverlay: React.FC<TranscriptOverlayProps> = ({ className = "" })
   return (
     <div 
       ref={containerRef}
-      className={`overflow-y-auto max-h-60 p-4 bg-white/80 rounded-lg ${className}`}
+      className={cn(
+        "overflow-y-auto max-h-60 p-4 bg-white/80 rounded-lg shadow-md",
+        className
+      )}
+      aria-live="polite"
+      aria-atomic="true"
     >
-      {renderTranscript()}
+      {transcript ? renderTranscript() : (
+        <p className="text-gray-500 italic">No transcript available</p>
+      )}
     </div>
   );
 };

@@ -14,6 +14,7 @@ import { PreCall } from "@/components/PreCall";
 import { BOT_READY_TIMEOUT, defaultConfig, defaultServices } from "@/rtvi.config";
 import { SupportGroups } from "@/components/SupportGroups";
 import { PeerCalls } from "@/components/PeerCalls";
+import CrisisSupport from "@/components/CrisisSupport";
 // import withAuth from "@/utils/supabase/withAuth"; // Import the withAuth HOC
 
 interface ConfigOption {
