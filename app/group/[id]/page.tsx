@@ -9,7 +9,7 @@ import { Howl } from 'howler';
 import { v4 as uuidv4 } from 'uuid';
 import SpeechRecognition from '@/components/SpeechRecognition';
 import { createClient } from '@/utils/supabase/client';
-import { Clock, Wifi, WifiOff, Mic, MicOff } from 'lucide-react';
+import { Clock, Wifi, WifiOff, Mic, MicOff, Hand, HandMetal } from 'lucide-react';
 import { toast } from "@/components/ui/use-toast";
 
 interface Participant {
@@ -44,7 +44,8 @@ export default function GroupAudioRoom() {
   const [hasJoinedBefore, setHasJoinedBefore] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
   const [channelJoined, setChannelJoined] = useState(false);
-  const [speakingTimeLeft, setSpeakingTimeLeft] = useState<number>(120); // 2 minutes in seconds
+  const [speakingTimeLeft, setSpeakingTimeLeft] = useState<number>(180); // 3 minutes in seconds
+  const [isSpeechRecognitionActive, setIsSpeechRecognitionActive] = useState(false);
 
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const audioQueueRef = useRef<string[]>([]);
@@ -136,12 +137,12 @@ export default function GroupAudioRoom() {
 
   useEffect(() => {
     if (activeSpeaker === userId) {
-      setSpeakingTimeLeft(120);
+      setSpeakingTimeLeft(180); // Reset to 3 minutes
       speakingTimerRef.current = setInterval(() => {
         setSpeakingTimeLeft((prevTime) => {
           if (prevTime <= 1) {
             clearInterval(speakingTimerRef.current!);
-            stopSpeaking();
+            passSpeaking();
             return 0;
           }
           return prevTime - 1;
@@ -210,6 +211,38 @@ export default function GroupAudioRoom() {
     sound.play();
   }, [updateParticipantSpeakingStatus]);
 
+  const sendMessage = (content: string, type: "text" | "tool_response" = "text", tool_call_id?: string) => {
+    if (humeChannel && channelJoined) {
+      const message = {
+        type,
+        content,
+        ...(tool_call_id && { tool_call_id }),
+        userId
+      };
+
+      humeChannel.push("user_message", message)
+        .receive("ok", (resp: { [key: string]: any }) => {
+          console.log("Message sent:", resp);
+          if (type === "text") {
+            addMessage(userId, content);
+          }
+        })
+        .receive("error", (err: { [key: string]: any }) => {
+          console.error("Error sending message:", err);
+          toast({
+            title: "Message Error",
+            description: "Failed to send your message. Please try again.",
+            variant: "destructive",
+          });
+        });
+    }
+  };
+
+  const sendToolCallResponseMessage = (content: string, tool_call_id: string) => { 
+    console.log("Sending tool call response message:", content);
+    sendMessage(content, "tool_response", tool_call_id);
+  };
+
   const initializeChannel = useCallback(async () => {
     if (!userId || !groupId) return;
 
@@ -229,11 +262,17 @@ export default function GroupAudioRoom() {
       });
 
       eviChannel.on("active_speaker", (payload: { userId: string, groupId: string, tool_call_id: string }) => {
-        sendToolCallResponseMessage(payload.tool_call_id);
         console.log(`Unlocked microphone for user: ${payload.userId}`);
         console.log(`Tool Call ID: ${payload.tool_call_id}`);
         updateParticipantSpeakingStatus(payload.userId, true);
         setActiveSpeaker(payload.userId);
+        setIsSpeechRecognitionActive(true);
+      });
+
+      eviChannel.on("assistant_end", () => {
+        if (activeSpeaker === userId) {
+          passSpeaking();
+        }
       });
 
       eviChannel.on("audio_output", (payload: { data: string }) => {
@@ -253,6 +292,61 @@ export default function GroupAudioRoom() {
         console.log("User left:", payload);
         fetchParticipants();
       });
+
+      eviChannel.on("user_raised_hand", payload => {
+        console.log("User raised hand", payload);
+        sendMessage("You have been selected to speak. You have 3 minutes.", "tool_response", payload.tool_call_id);
+      });
+
+      // eviChannel.on("handle_frame", (payload: { tool_call_id: string, action: string }) => {
+      //   console.log("Received handle_frame:", payload);
+      //   if (payload.action === "raise_hand") {
+      //     setHandRaised(true);
+      //     sendToolCallResponseMessage("Hand raised successfully", payload.tool_call_id);
+      //     toast({
+      //       title: "Hand Raised",
+      //       description: "You have raised your hand.",
+      //     });
+      //   } else if (payload.action === "lower_hand") {
+      //     setHandRaised(false);
+      //     sendToolCallResponseMessage("Hand lowered successfully", payload.tool_call_id);
+      //     toast({
+      //       title: "Hand Lowered",
+      //       description: "You have lowered your hand.",
+      //     });
+      //   }
+      // });
+
+      const sendMessage = (content: string, type: "text" | "tool_response" = "text", tool_call_id?: string) => {
+        console.log("Sending message:", content);
+        console.log("Message type:", type);
+        console.log("Tool call ID:", tool_call_id);
+        console.log(eviChannel)
+        if (eviChannel) {
+          const message = {
+            type,
+            content,
+            ...(tool_call_id && { tool_call_id }),
+            userId
+          };
+    
+          eviChannel.push("user_message", message)
+            .receive("ok", (resp: { [key: string]: any }) => {
+              console.log("Message sent:", resp);
+              if (type === "text") {
+                addMessage(userId, content);
+              }
+            })
+            .receive("error", (err: { [key: string]: any }) => {
+              console.error("Error sending message:", err);
+              toast({
+                title: "Message Error",
+                description: "Failed to send your message. Please try again.",
+                variant: "destructive",
+              });
+            });
+        }
+      };
 
       eviChannel.onError(() => {
         console.error("Channel error");
@@ -304,7 +398,7 @@ export default function GroupAudioRoom() {
         variant: "destructive",
       });
     }
-  }, [userId, groupId, addMessage, updateParticipantSpeakingStatus, playNextAudio, fetchParticipants]);
+  }, [userId, groupId, addMessage, updateParticipantSpeakingStatus, playNextAudio, fetchParticipants, activeSpeaker]);
 
   const reconnect = useCallback(() => {
     if (reconnectAttempts.current < 5) {
@@ -332,7 +426,8 @@ export default function GroupAudioRoom() {
 
   useEffect(() => {
     const autoJoin = async () => {
-      if (userId && participants.some(p => p.id === userId) && !isInCall && connectionStatus === 'connected' && channelJoined) {
+      if (userId && participants.some(p => p.id === userId) && !isInCall &&
+          connectionStatus === 'connected' && channelJoined) {
         await joinCall();
       }
     };
@@ -394,6 +489,7 @@ export default function GroupAudioRoom() {
           }
           joinTimeRef.current = null;
           setHasJoinedBefore(false);
+          setIsSpeechRecognitionActive(false);
           toast({
             title: "Left Call",
             description: "You have successfully left the audio room.",
@@ -419,58 +515,44 @@ export default function GroupAudioRoom() {
 
   const raiseHand = () => {
     if (!humeChannel || !userId || !groupId || !canRaiseHand || !channelJoined) return;
-    sendMessage(`${userId} has raised their hand in group ${groupId}`);
-    setHandRaised(true);
-    toast({
-      title: "Hand Raised",
-      description: "You have raised your hand.",
-    });
+    humeChannel.push("raise_hand", { userId, groupId })
+      .receive("ok", (resp: { [key: string]: any }) => {
+        console.log("Hand raised successfully:", resp);
+        setHandRaised(true);
+        toast({
+          title: "Hand Raised",
+          description: "You have raised your hand.",
+        });
+      })
+      .receive("error", (err: { [key: string]: any }) => {
+        console.error("Error raising hand:", err);
+        toast({
+          title: "Raise Hand Error",
+          description: "Failed to raise your hand. Please try again.",
+          variant: "destructive",
+        });
+      });
   };
-
+  
   const lowerHand = () => {
     if (!humeChannel || !userId || !groupId || !channelJoined) return;
-    sendMessage(`${userId} has lowered their hand in group ${groupId}`);
-    setHandRaised(false);
-    toast({
-      title: "Hand Lowered",
-      description: "You have lowered your hand.",
-    });
-  };
-
-  const sendMessage = (content: string) => {
-    if (humeChannel && channelJoined) {
-      humeChannel.push("user_message", { type: "text", content })
-        .receive("ok", (resp: { [key: string]: any }) => {
-          console.log("Message sent:", resp);
-          addMessage(userId, content);
-        })
-        .receive("error", (err: { [key: string]: any }) => {
-          console.error("Error sending message:", err);
-          toast({
-            title: "Message Error",
-            description: "Failed to send your message. Please try again.",
-            variant: "destructive",
-          });
+    humeChannel.push("lower_hand", { userId, groupId })
+      .receive("ok", (resp: { [key: string]: any }) => {
+        console.log("Hand lowered successfully:", resp);
+        setHandRaised(false);
+        toast({
+          title: "Hand Lowered",
+          description: "You have lowered your hand.",
         });
-    }
-  };
-
-  const sendToolCallResponseMessage = (content: string) => {
-    console.log("Sending tool call response message:", content);
-    if (humeChannel && channelJoined) {
-      humeChannel.push("user_message", { type: "tool_response", content })
-        .receive("ok", (resp: { [key: string]: any }) => {
-          console.log("Tool response sent:", resp);
-        })
-        .receive("error", (err: { [key: string]: any }) => {
-          console.error("Error sending tool response:", err);
-          toast({
-            title: "Response Error",
-            description: "Failed to send your response. Please try again.",
-            variant: "destructive",
-          });
+      })
+      .receive("error", (err: { [key: string]: any }) => {
+        console.error("Error lowering hand:", err);
+        toast({
+          title: "Lower Hand Error",
+          description: "Failed to lower your hand. Please try again.",
+          variant: "destructive",
         });
-    }
+      });
   };
 
   const handleSpeechRecognitionResult = (transcript: string) => {
@@ -479,68 +561,63 @@ export default function GroupAudioRoom() {
     }
   };
 
-  const stopSpeaking = () => {
+  const passSpeaking = () => {
     if (humeChannel && channelJoined) {
-      humeChannel.push("stop_speaking", { userId })
+      humeChannel.push("pass_speaking", { userId })
         .receive("ok", (resp: { [key: string]: any }) => {
-          console.log("Stopped speaking:", resp);
+          console.log("Passed speaking:", resp);
           setActiveSpeaker('');
           updateParticipantSpeakingStatus(userId, false);
+          setIsSpeechRecognitionActive(false);
           toast({
-            title: "Stopped Speaking",
-            description: "You have stopped speaking.",
+            title: "Passed Speaking",
+            description: "You have passed your turn to speak.",
           });
         })
         .receive("error", (err: { [key: string]: any }) => {
-          console.error("Error stopping speaking:", err);
+          console.error("Error passing speaking:", err);
           toast({
-            title: "Stop Speaking Error",
-            description: "Failed to stop speaking. Please try again.",
+            title: "Pass Speaking Error",
+            description: "Failed to pass speaking. Please try again.",
             variant: "destructive",
           });
         });
     }
   };
 
+  useEffect(() => {
+    if (scrollAreaRef.current) {
+      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
+    }
+  }, [messages]);
+
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="container mx-auto px-4 py-8">
-        <div className="bg-white rounded-lg shadow-lg overflow-hidden">
-          <div className="flex justify-between items-center p-6 bg-gray-200">
-            <h2 className="text-2xl font-bold">Group Audio Room</h2>
-            <div className="flex items-center">
-              {connectionStatus === 'connected' ? (
-                <Wifi className="text-green-500 mr-2" />
-              ) : connectionStatus === 'connecting' ? (
-                <Wifi className="text-yellow-500 mr-2" />
-              ) : (
-                <WifiOff className="text-red-500 mr-2" />
-              )}
-              <span>{connectionStatus}</span>
-            </div>
-          </div>
-          <div className="flex flex-col lg:flex-row">
-            <div className="w-full lg:w-2/3 p-6">
-              <div className="bg-gray-50 p-4 rounded-lg h-[calc(100vh-300px)] overflow-auto" ref={scrollAreaRef}>
-                {messages.map(message => (
-                  <div key={message.id} className={`p-3 mb-3 rounded-lg ${message.user_id === 'bot' ? 'bg-blue-100' : 'bg-gray-200'}`}>
-                    <div className="font-semibold">{message.user_id === 'bot' ? 'Facilitator' : message.user_id}</div>
-                    <div>{message.content}</div>
-                  </div>
-                ))}
+    <div className="min-h-screen bg-gray-100 flex">
+      <div className="flex-grow flex flex-col lg:flex-row">
+        <div className="w-full lg:w-3/4 p-6 flex flex-col">
+          <div className="bg-white rounded-lg shadow-lg overflow-hidden flex-grow flex flex-col">
+            <div className="flex justify-between items-center p-6 bg-gray-200">
+              <h2 className="text-2xl font-bold">Group Audio Room</h2>
+              <div className="flex items-center">
+                {connectionStatus === 'connected' ? (
+                  <Wifi className="text-green-500 mr-2" />
+                ) : connectionStatus === 'connecting' ? (
+                  <Wifi className="text-yellow-500 mr-2" />
+                ) : (
+                  <WifiOff className="text-red-500 mr-2" />
+                )}
+                <span>{connectionStatus}</span>
               </div>
             </div>
-
-            <div className="w-full lg:w-1/3 p-6 border-l">
-              <h3 className="text-xl font-semibold mb-4">Participants</h3>
-              <div className="space-y-3">
+            <div className="flex-grow p-6 overflow-y-auto">
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
                 {participants.map(participant => (
-                  <div key={participant.id} className="flex items-center p-3 bg-gray-50 rounded-lg">
-                    <Avatar className="h-12 w-12">
+                  <div key={participant.id} className={`flex flex-col items-center p-3 rounded-lg ${participant.isSpeaking ? 'bg-green-100' : 'bg-gray-50'}`}>
+                    <Avatar className="h-20 w-20 mb-2">
                       <AvatarImage src={participant.avatar} alt={participant.name} />
                       <AvatarFallback>{participant.name[0]}</AvatarFallback>
                     </Avatar>
-                    <div className="ml-4">
+                    <div className="text-center">
                       <div className="font-medium">{participant.name}</div>
                       <div className="text-sm text-gray-500">
                         {participant.isSpeaking && <span className="text-green-500 mr-2">Speaking</span>}
@@ -552,68 +629,82 @@ export default function GroupAudioRoom() {
                 ))}
               </div>
             </div>
-          </div>
-
-          <div className="p-6 border-t">
-            {activeSpeaker === userId ? (
-              <div className="space-y-4">
-                <SpeechRecognition onResult={handleSpeechRecognitionResult} />
-                <div className="flex items-center justify-between">
-                  <Button onClick={stopSpeaking} className="bg-red-500 hover:bg-red-600 text-white">
-                    <MicOff className="mr-2 h-4 w-4" /> Stop Speaking
-                  </Button>
-                  <div className="text-lg font-semibold">
-                    Time left: {Math.floor(speakingTimeLeft / 60)}:{(speakingTimeLeft % 60).toString().padStart(2, '0')}
+            <div className="p-6 border-t">
+              {activeSpeaker === userId ? (
+                <div className="space-y-4">
+                  {isSpeechRecognitionActive && <SpeechRecognition onResult={handleSpeechRecognitionResult} />}
+                  <div className="flex items-center justify-between">
+                    <Button onClick={passSpeaking} className="bg-yellow-500 hover:bg-yellow-600 text-white">
+                      Pass Speaking
+                    </Button>
+                    <div className="text-lg font-semibold">
+                      Time left: {Math.floor(speakingTimeLeft / 60)}:{(speakingTimeLeft % 60).toString().padStart(2, '0')}
+                    </div>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="flex flex-wrap gap-4">
-                {!isInCall ? (
-                  <Button 
-                    onClick={joinCall} 
-                    className="bg-green-500 hover:bg-green-600 text-white"
-                    disabled={connectionStatus !== 'connected' || !channelJoined}
-                  >
-                    Join Call
-                  </Button>
-                ) : (
-                  <>
-                    <Button onClick={leaveCall} className="bg-red-500 hover:bg-red-600 text-white">
-                      Leave Call
+              ) : (
+                <div className="flex flex-wrap gap-4">
+                  {!isInCall ? (
+                    <Button 
+                      onClick={joinCall} 
+                      className="bg-green-500 hover:bg-green-600 text-white"
+                      disabled={connectionStatus !== 'connected' || !channelJoined}
+                    >
+                      Join Call
                     </Button>
-                    {canRaiseHand ? (
-                      !handRaised ? (
-                        <Button 
-                          onClick={raiseHand} 
-                          className="bg-blue-500 hover:bg-blue-600 text-white"
-                          disabled={!channelJoined}
-                        >
-                          Raise Hand
-                        </Button>
+                  ) : (
+                    <>
+                      <Button onClick={leaveCall} className="bg-red-500 hover:bg-red-600 text-white">
+                        Leave Call
+                      </Button>
+                      {canRaiseHand ? (
+                        !handRaised ? (
+                          <Button 
+                            onClick={raiseHand} 
+                            className="bg-blue-500 hover:bg-blue-600 text-white"
+                            disabled={!channelJoined}
+                          >
+                            <Hand className="mr-2 h-4 w-4" /> Raise Hand
+                          </Button>
+                        ) : (
+                          <Button 
+                            onClick={lowerHand} 
+                            className="bg-yellow-500 hover:bg-yellow-600 text-white"
+                            disabled={!channelJoined}
+                          >
+                            <HandMetal className="mr-2 h-4 w-4" /> Lower Hand
+                          </Button>
+                        )
                       ) : (
-                        <Button 
-                          onClick={lowerHand} 
-                          className="bg-yellow-500 hover:bg-yellow-600 text-white"
-                          disabled={!channelJoined}
-                        >
-                          Lower Hand
-                        </Button>
-                      )
-                    ) : (
-                      <div className="flex items-center text-gray-600">
-                        <Clock className="mr-2" />
-                        <span>
-                          {raiseHandCountdown !== null
-                            ? `You can raise your hand in ${raiseHandCountdown} seconds`
-                            : 'Joining call...'}
-                        </span>
-                      </div>
-                    )}
-                  </>
-                )}
+                        <div className="flex items-center text-gray-600">
+                          <Clock className="mr-2" />
+                          <span>
+                            {raiseHandCountdown !== null
+                              ? `You can raise your hand in ${raiseHandCountdown} seconds`
+                              : 'Joining call...'}
+                          </span>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+
+        <div className="w-full lg:w-1/4 p-6 bg-white shadow-lg overflow-hidden">
+          <h3 className="text-xl font-semibold mb-4">Chat</h3>
+          <div 
+            ref={scrollAreaRef}
+            className="h-[calc(100vh-200px)] overflow-y-auto scrollbar-thin scrollbar-thumb-gray-300 scrollbar-track-gray-100"
+          >
+            {messages.map(message => (
+              <div key={message.id} className={`p-2 mb-2 rounded-lg text-sm ${message.user_id === 'bot' ? 'bg-blue-100' : 'bg-gray-100'}`}>
+                <div className="font-semibold">{message.user_id === 'bot' ? 'Facilitator' : message.user_id}</div>
+                <div>{message.content}</div>
               </div>
-            )}
+            ))}
           </div>
         </div>
       </div>
