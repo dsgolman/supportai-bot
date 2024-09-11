@@ -261,9 +261,8 @@ export default function GroupAudioRoom() {
         updateParticipantSpeakingStatus('bot', true);
       });
 
-      eviChannel.on("active_speaker", (payload: { userId: string, groupId: string, tool_call_id: string }) => {
-        console.log(`Unlocked microphone for user: ${payload.userId}`);
-        console.log(`Tool Call ID: ${payload.tool_call_id}`);
+      eviChannel.on("active_speaker", (payload: { userId: string, groupId: string }) => {
+        console.log(payload);
         updateParticipantSpeakingStatus(payload.userId, true);
         setActiveSpeaker(payload.userId);
         setIsSpeechRecognitionActive(true);
