@@ -15,9 +15,11 @@ export function PeerCalls() {
   const router = useRouter();
 
   const handleStartCall = (index: number) => {
-    setAssistant(PRESET_ASSISTANTS[index]);
-    // router.push('/support/pre-call'); // Navigate to the pre-call page
+    // setAssistant(PRESET_ASSISTANTS[index]);
+    router.push(`/support?assistant=${PRESET_ASSISTANTS[index].name}`); // Navigate to the pre-call page
   };
+
+  const chatAssistants = PRESET_ASSISTANTS.filter(assistant => !assistant.supportsGroupChat && !assistant.onboarding);
 
   return (
     <div className="container mx-auto py-12 px-4 md:px-6">
@@ -29,7 +31,7 @@ export function PeerCalls() {
       </div>
       <div className="mt-12">
         <div className="grid gap-8 sm:grid-cols-2 lg:grid-cols-3">
-          {PRESET_ASSISTANTS.map((assistant, i) => (
+          {chatAssistants.map((assistant, i) => (
             <Card key={assistant.name}>
               <CardHeader>
                 <CardTitle>{assistant.name}</CardTitle>

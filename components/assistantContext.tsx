@@ -1,13 +1,16 @@
+// components/assistantContext.tsx
 "use client"
 
 import { createContext, useContext, useState, ReactNode } from 'react';
 
 // Define the structure for assistant object
 interface Assistant {
+  id: string;
   name: string;
   prompt: string;
   voice: string;
   description: string;
+  supportsGroupChat: boolean; // New flag to indicate if the assistant supports group chat
 }
 
 interface AssistantContextType {
