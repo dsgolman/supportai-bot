@@ -6,6 +6,7 @@ import { Mic, MicOff } from 'lucide-react';
 
 interface SpeechRecognitionProps {
   onResult: (transcript: string) => void;
+  isActive: boolean
 }
 
 interface SpeechRecognitionEvent extends Event {

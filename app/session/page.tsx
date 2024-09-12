@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 'use client';
 
 import React, { useState, useCallback, useEffect, useRef } from 'react'
@@ -108,4 +109,25 @@ export default function SessionPage() {
       </div>
     </div>
   )
+=======
+import { getHumeAccessToken } from "@/utils/getHumeAccessToken";
+import dynamic from "next/dynamic";
+
+const Chat = dynamic(() => import("@/components/Chat"), {
+  ssr: false,
+});
+
+export default async function Page() {
+  const accessToken = await getHumeAccessToken();
+
+  if (!accessToken) {
+    throw new Error();
+  }
+
+  return (
+    <div className={"grow flex flex-col"}>
+      <Chat accessToken={accessToken} />
+    </div>
+  );
+>>>>>>> 6cc607f029263f3ee99a915b2da1b5f35d460451
 }
