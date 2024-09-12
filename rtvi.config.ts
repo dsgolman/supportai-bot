@@ -170,6 +170,7 @@ export const PRESET_ASSISTANTS = [
   {
     id: "e282a435-d676-4092-af50-c8708601a69b",
     name: "Mental Health",
+    config_id: "129e0a4a-396a-4f6a-aea1-c25b3ef4df9c",
     prompt: `You are a mental health support companion. Connect with others and learn coping strategies for managing anxiety. 
     Please keep your responses supportive and practical, avoiding special characters other than '!' or '?'.`,
     voice: "79a125e8-cd45-4c13-8a67-188112f4dd22",
@@ -178,8 +179,20 @@ export const PRESET_ASSISTANTS = [
     onboarding: false
   },
   {
+    "id": "e3cd2849-e665-4ac2-baba-e014076aaaed",
+    "name": "Substance Abuse Support",
+    "config_id": "a86916d4-fdef-4d45-8932-60e5e89f45e3",
+    "prompt": "You are a substance abuse recovery coach. Help guide me through the principles of recovery, focusing on accountability, self-reflection, and peer support. Keep your responses empathetic and encouraging, using simple and direct language. Avoid special characters other than '!' or '?'.",
+    "voice": "b7d50908-b17c-442d-ad8d-810c63997ed9",
+    "description": "A supportive space to explore recovery principles and foster accountability and growth.",
+    "supportsGroupChat": true,
+    "onboarding": false
+  },
+  
+  {
     id: "fd30ae1c-8818-4e29-a9d6-873e370feace",
     name: "Emotional Health",
+    config_id: "6a8e2697-4d41-4091-8019-0006757b6095",
     prompt: `You are a relationship counselor. Explore healthy communication and conflict resolution techniques with me. 
     Keep your responses empathetic and constructive, avoiding special characters other than '!' or '?'.`,
     voice: "b7d50908-b17c-442d-ad8d-810c63997ed9",
@@ -188,8 +201,9 @@ export const PRESET_ASSISTANTS = [
     onboarding: false
   },
   {
-    id: "fd30ae1c-8818-4e29-a9d6-873e370feace",
+    id: "d5a77bf4-c5bb-4a14-8e91-3901d9108d79",
     name: "Physical Health",
+    config_id: "af4acbd8-efe6-4de0-a4c6-7f9ae6e69557",
     prompt: `You are a relationship counselor. Explore healthy communication and conflict resolution techniques with me. 
     Keep your responses empathetic and constructive, avoiding special characters other than '!' or '?'.`,
     voice: "b7d50908-b17c-442d-ad8d-810c63997ed9",

@@ -1,21 +1,23 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
-import { useParams } from 'next/navigation';
-import { getChannel } from '@/utils/socket';
-import { Button } from "@/components/ui/button";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { v4 as uuidv4 } from 'uuid';
-import SpeechRecognition from '@/components/SpeechRecognition';
-import AudioCapture from '@/components/AudioCapture';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { useParams, useSearchParams } from 'next/navigation';
 import { createClient } from '@/utils/supabase/client';
-import { Mic, MicOff, Hand, HandMetal, Users, Volume2, VolumeX, Wifi, WifiOff, Heart, Sun, Smile, LogOut, MessageSquare } from 'lucide-react';
-import { toast } from "@/components/ui/use-toast";
+import { getChannel } from '@/utils/socket';
 import { Hume } from 'hume';
 import { Howl } from 'howler';
-import { motion, AnimatePresence } from 'framer-motion';
+
+import { Button } from "@/components/ui/button";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Card, CardContent } from "@/components/ui/card";
+import { toast } from "@/components/ui/use-toast";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import SpeechRecognition from '@/components/SpeechRecognition';
+import AudioCapture from '@/components/AudioCapture';
+
+import { Mic, MicOff, Hand, Volume2, VolumeX, Wifi, WifiOff, LogOut, FastForward } from 'lucide-react';
 
 interface Participant {
   id: string;
@@ -23,30 +25,21 @@ interface Participant {
   avatar: string;
   isSpeaking: boolean;
   isBot: boolean;
-  role: 'speaker' | 'listener';
+  role: string;
   handRaised: boolean;
 }
 
-interface Message {
-  id: string;
-  user_id: string;
-  content: string;
-  created_at: string;
-  group_id: string | null;
-}
+type ConnectionStatus = 'connected' | 'disconnected' | 'connecting';
 
-export default function ScheduledGroupAudioRoom() {
-  const { id: groupId } = useParams();
-  const [messages, setMessages] = useState<Message[]>([]);
+export default function GroupPage() {
+  const { id: groupId } = useParams<{ id: string }>();
+  const searchParams = useSearchParams();
   const [participants, setParticipants] = useState<Participant[]>([]);
   const [userId, setUserId] = useState<string | null>(null);
   const [activeSpeaker, setActiveSpeaker] = useState<string>('');
-  const [isListening, setIsListening] = useState(false);
   const [handRaised, setHandRaised] = useState(false);
   const [isInCall, setIsInCall] = useState(false);
-  const audioQueueRef = useRef<string[]>([]);
-  const isPlayingRef = useRef<boolean>(false);
-  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
+  const [connectionStatus, setConnectionStatus] = useState<ConnectionStatus>('disconnected');
   const [channelJoined, setChannelJoined] = useState(false);
   const [speakingTimeLeft, setSpeakingTimeLeft] = useState<number>(180);
   const [isSpeechRecognitionActive, setIsSpeechRecognitionActive] = useState(false);
@@ -54,10 +47,17 @@ export default function ScheduledGroupAudioRoom() {
   const [isTalking, setIsTalking] = useState(false);
   const [isMuted, setIsMuted] = useState(false);
   const [isSpeechEnabled, setIsSpeechEnabled] = useState(false);
+  const [isSessionStarted, setIsSessionStarted] = useState(false);
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
+  const [countdownTime, setCountdownTime] = useState<number>(0);
+  const [isNameModalOpen, setIsNameModalOpen] = useState<boolean>(false);
+  const [firstName, setFirstName] = useState<string>('');
+  const [lastInitial, setLastInitial] = useState<string>('');
+
   const channelRef = useRef<any>(null);
   const audioRef = useRef<Howl | null>(null);
-
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const audioQueueRef = useRef<string[]>([]);
+  const isPlayingRef = useRef<boolean>(false);
   const speakingTimerRef = useRef<NodeJS.Timeout | null>(null);
 
   const supabase = createClient();
@@ -67,82 +67,152 @@ export default function ScheduledGroupAudioRoom() {
       const { data: { session } } = await supabase.auth.getSession();
       if (session?.user) {
         setUserId(session.user.id);
+        await ensureUserInGroup(session.user.id);
+      } else {
+        setIsNameModalOpen(true);
       }
     };
 
     fetchUserData();
-  }, [supabase.auth]);
+  }, []);
 
   useEffect(() => {
-    const fetchGroupMembers = async () => {
-      if (groupId) {
-        const { data: groupMembersData, error: groupMembersError } = await supabase
-          .from('group_members')
-          .select('user_id')
-          .eq('group_id', groupId);
-        
-        if (groupMembersError) {
-          console.error('Error fetching group members:', groupMembersError);
-          return;
-        }
-
-        const userIds = groupMembersData.map(member => member.user_id);
-
-        const { data: profilesData, error: profilesError } = await supabase
-          .from('profiles')
-          .select('*')
-          .in('id', userIds);
-
-        if (profilesError) {
-          console.error('Error fetching profiles:', profilesError);
-          return;
-        }
-
-        const participants = profilesData.map(profile => ({
-          id: profile.id,
-          full_name: profile.full_name,
-          avatar: profile.avatar_url,
-          isSpeaking: false,
-          isBot: false,
-          role: 'listener' as const,
-          handRaised: false
-        }));
-
-        setParticipants(participants);
+    const startTimeParam = searchParams.get('startTime');
+    if (startTimeParam) {
+      const startTime = new Date(parseInt(startTimeParam));
+      setSessionStartTime(startTime);
+      const now = new Date();
+      if (startTime <= now) {
+        setIsSessionStarted(true);
+        setCountdownTime(0);
+      } else {
+        setIsSessionStarted(false);
+        setCountdownTime(Math.floor((startTime.getTime() - now.getTime()) / 1000));
       }
-    };
+    }
+  }, [searchParams]);
 
-    fetchGroupMembers();
+  useEffect(() => {
+    if (sessionStartTime && !isSessionStarted) {
+      const timer = setInterval(() => {
+        const now = new Date();
+        const timeLeft = sessionStartTime.getTime() - now.getTime();
+        if (timeLeft <= 0) {
+          setIsSessionStarted(true);
+          setCountdownTime(0);
+          clearInterval(timer);
+        } else {
+          setCountdownTime(Math.floor(timeLeft / 1000));
+        }
+      }, 1000);
+      return () => clearInterval(timer);
+    }
+  }, [sessionStartTime, isSessionStarted]);
+
+  const ensureUserInGroup = async (userId: string) => {
+    if (!groupId) return;
+
+    const { data: existingMember, error: memberError } = await supabase
+      .from('group_members')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('group_id', groupId)
+      .single();
+
+    if (memberError && memberError.code !== 'PGRST116') {
+      console.error('Error checking group membership:', memberError);
+      return;
+    }
+
+    if (!existingMember) {
+      const { error: insertError } = await supabase
+        .from('group_members')
+        .insert({ user_id: userId, group_id: groupId });
+
+      if (insertError) {
+        console.error('Error inserting group member:', insertError);
+        return;
+      }
+    }
+
+    await fetchGroupMembers();
+  };
+
+  const fetchGroupMembers = useCallback(async () => {
+    if (groupId) {
+      const { data: groupMembersData, error: groupMembersError } = await supabase
+        .from('group_members')
+        .select('user_id')
+        .eq('group_id', groupId);
+      
+      if (groupMembersError) {
+        console.error('Error fetching group members:', groupMembersError);
+        return;
+      }
+
+      const userIds = groupMembersData.map(member => member.user_id);
+
+      const { data: profilesData, error: profilesError } = await supabase
+        .from('profiles')
+        .select('*')
+        .in('id', userIds);
+
+      if (profilesError) {
+        console.error('Error fetching profiles:', profilesError);
+        return;
+      }
+
+      const participants = profilesData.map(profile => ({
+        id: profile.id,
+        full_name: profile.full_name,
+        avatar: profile.avatar_url,
+        isSpeaking: false,
+        isBot: false,
+        role: 'listener',
+        handRaised: false
+      }));
+
+      participants.push({
+        id: 'bot',
+        full_name: 'AI Facilitator',
+        avatar: '/placeholder.svg?height=100&width=100',
+        isSpeaking: false,
+        isBot: true,
+        role: 'speaker',
+        handRaised: false
+      });
+
+      setParticipants(participants);
+    }
   }, [groupId, supabase]);
 
   useEffect(() => {
-    if (groupId) {
+    fetchGroupMembers();
+  }, [fetchGroupMembers]);
+
+  useEffect(() => {
+    if (groupId && userId) {
       const { channel } = getChannel(userId, groupId);
       channelRef.current = channel;
 
       channel.join()
-        .receive("ok", (resp: { [key: string]: any }) => {
+        .receive("ok", (resp: Record<string, unknown>) => {
           console.log("Joined successfully", resp);
           setConnectionStatus('connected');
           setChannelJoined(true);
         })
-        .receive("error", (resp: { [key: string]: any }) => {
+        .receive("error", (resp: Record<string, unknown>) => {
           console.log("Unable to join", resp);
           setConnectionStatus('disconnected');
         });
 
-      channel.on("bot_message", (payload: { [key: string]: any }) => {
-        console.log("Received new message:", payload);
-        addMessage(payload.user_id, payload.message);
-      });
-
-      channel.on("active_speaker", (payload: { [key: string]: any }) => {
+      channel.on("active_speaker", (payload: { userId: string }) => {
         console.log("Active speaker changed:", payload);
         setActiveSpeaker(payload.userId);
         updateParticipantSpeakingStatus(payload.userId, true);
       });
 
-      channel.on("participants_update", (payload: { [key: string]: any }) => {
+      channel.on("participants_update", (payload: { participants: Participant[] }) => {
         console.log("Participants updated:", payload);
         setParticipants(payload.participants);
       });
@@ -155,7 +225,7 @@ export default function ScheduledGroupAudioRoom() {
         }
       });
 
-      channel.on("user_raised_hand", (payload: { [key: string]: any }) => {
+      channel.on("user_raised_hand", (payload: { user_id: string; tool_call_id: string; group_id: string }) => {
         console.log("User raised hand:", payload);
         updateParticipantHandStatus(payload.user_id, true);
         channelRef.current.push("tool_call_response", {
@@ -166,9 +236,14 @@ export default function ScheduledGroupAudioRoom() {
         });
       });
 
-      channel.on("user_lowered_hand", (payload: { [key: string]: any }) => {
+      channel.on("user_lowered_hand", (payload: { user_id: string }) => {
         console.log("User lowered hand:", payload);
         updateParticipantHandStatus(payload.user_id, false);
+      });
+
+      channel.on("session_started", (payload: { start_time: string }) => {
+        setIsSessionStarted(true);
+        setSessionStartTime(new Date(payload.start_time));
       });
 
       return () => {
@@ -197,26 +272,13 @@ export default function ScheduledGroupAudioRoom() {
     );
   }, []);
 
-  const addMessage = useCallback((userId: string, content: string) => {
-    setMessages(prevMessages => [
-      ...prevMessages,
-      {
-        id: uuidv4(),
-        user_id: userId,
-        content,
-        created_at: new Date().toISOString(),
-        group_id: typeof groupId === 'string' ? groupId : null
-      }
-    ]);
-  }, [groupId]);
-
   const handleAudioInput = useCallback((audioInput: Omit<Hume.empathicVoice.AudioInput, 'type'>) => {
     if (channelRef.current && isTalking) {
       channelRef.current.push("audio_input", audioInput)
-        .receive("ok", (resp: { [key: string]: any }) => {
+        .receive("ok", (resp: Record<string, unknown>) => {
           console.log("Audio input sent:", resp);
         })
-        .receive("error", (err: { [key: string]: any }) => {
+        .receive("error", (err: Record<string, unknown>) => {
           console.error("Error sending audio input:", err);
         });
     }
@@ -238,10 +300,10 @@ export default function ScheduledGroupAudioRoom() {
       onend: () => {
         playNextAudio();
       },
-      onloaderror: (id, error) => {
+      onloaderror: (_id, error) => {
         console.error('Howl load error:', error);
       },
-      onplayerror: (id, error) => {
+      onplayerror: (_id, error) => {
         console.error('Howl play error:', error);
       },
     });
@@ -251,25 +313,27 @@ export default function ScheduledGroupAudioRoom() {
 
   const handleSpeechRecognitionResult = useCallback((transcript: string) => {
     if (userId && isTalking) {
-      addMessage(userId, transcript);
       channelRef.current.push("new_msg", { user_id: userId, content: transcript });
     }
-  }, [userId, isTalking, addMessage]);
+  }, [userId, isTalking]);
 
   const joinCall = useCallback(async () => {
-    if (!channelRef.current || !userId || !groupId || !channelJoined) return;
+    if (!channelRef.current || !groupId || !channelJoined) return;
 
-    try {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      setUserId(session.user.id);
+      await ensureUserInGroup(session.user.id);
+      setIsInCall(true);
       channelRef.current.push("start_call", { groupId })
-        .receive("ok", async (resp: { [key: string]: any }) => {
+        .receive("ok", (resp: Record<string, unknown>) => {
           console.log("Joined call:", resp);
-          setIsInCall(true);
           toast({
             title: "Joined Circle",
             description: "You have successfully joined the wellness circle.",
           });
         })
-        .receive("error", (err: { [key: string]: any }) => {
+        .receive("error", (err: Record<string, unknown>) => {
           console.error("Error joining call:", err);
           toast({
             title: "Join Error",
@@ -277,21 +341,87 @@ export default function ScheduledGroupAudioRoom() {
             variant: "destructive",
           });
         });
-    } catch (error) {
-      console.error("Error joining call:", error);
+    } else {
+      setIsNameModalOpen(true);
+    }
+  }, [channelJoined, groupId, supabase.auth, ensureUserInGroup]);
+
+  const handleNameSubmit = useCallback(async () => {
+    if (!firstName || !lastInitial) {
       toast({
-        title: "Join Error",
-        description: "An unexpected error occurred while joining the circle.",
+        title: "Error",
+        description: "Please enter your first name and last initial.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    try {
+      let user;
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        const { data, error } = await supabase.auth.signInAnonymously();
+        if (error) throw error;
+        user = data.user;
+      } else {
+        user = session.user;
+      }
+
+      if (user) {
+        const fullName = `${firstName} ${lastInitial}.`;
+        const avatarUrl = `/placeholder.svg?height=100&width=100`;
+
+        const { error: upsertError } = await supabase
+          .from('profiles')
+          .upsert({
+            id: user.id,
+            full_name: fullName,
+            avatar_url: avatarUrl
+          });
+
+        if (upsertError) throw upsertError;
+
+        await ensureUserInGroup(user.id);
+
+        setUserId(user.id);
+        setIsNameModalOpen(false);
+        setIsInCall(true);
+        toast({
+          title: "Joined Circle",
+          description: "You have successfully joined the wellness circle.",
+        });
+
+        channelRef.current.push("start_call", { groupId })
+          .receive("ok", (resp: Record<string, unknown>) => {
+            console.log("Joined call:", resp);
+          })
+          .receive("error", (err: Record<string, unknown>) => {
+            console.error("Error joining call:", err);
+            toast({
+              title: "Join Error",
+              description: "Failed to join the wellness circle. Please try again.",
+              variant: "destructive",
+            });
+          });
+
+        await fetchGroupMembers();
+      }
+    } catch (error) {
+      console.error("Error joining group:", error);
+      toast({
+        title: "Error",
+        description: "Failed to join the group. Please try again.",
         variant: "destructive",
       });
     }
-  }, [channelJoined, groupId, userId]);
+  }, [firstName, lastInitial, supabase, groupId, fetchGroupMembers, ensureUserInGroup]);
 
   const leaveCall = useCallback(() => {
     if (!channelRef.current || !userId || !groupId) return;
 
     channelRef.current.push("end_call", { groupId })
-      .receive("ok", (resp: { [key: string]: any }) => {
+      .receive("ok", (resp: Record<string, unknown>) => {
         console.log("Left call:", resp);
         setIsInCall(false);
         setHandRaised(false);
@@ -302,7 +432,7 @@ export default function ScheduledGroupAudioRoom() {
           description: "You have successfully left the wellness circle.",
         });
       })
-      .receive("error", (err: { [key: string]: any }) => {
+      .receive("error", (err: Record<string, unknown>) => {
         console.error("Error leaving call:", err);
         toast({
           title: "Leave Error",
@@ -312,36 +442,60 @@ export default function ScheduledGroupAudioRoom() {
       });
   }, [groupId, userId]);
 
-  const raiseHand = useCallback(() => {
-    if (!channelRef.current || !userId || !groupId) return;
+  const toggleHand = useCallback(() => {
+    if (!channelRef.current || !userId || !groupId || !isSessionStarted) return;
 
-    channelRef.current.push("raise_hand", { groupId, userId })
-      .receive("ok", (resp: { [key: string]: any }) => {
-        console.log("Hand raised:", resp);
-        setHandRaised(true);
-        updateParticipantHandStatus(userId, true);
-
-        toast({
-          title: "Hand Raised",
-          description: "You have raised your hand.",
+    if (handRaised) {
+      channelRef.current.push("lower_hand", { groupId, userId })
+        .receive("ok", (resp: Record<string, unknown>) => {
+          console.log("Hand lowered:", resp);
+          setHandRaised(false);
+          updateParticipantHandStatus(userId, false);
+          setIsSpeechEnabled(false);
+          setIsTalking(false);
+          setIsAudioCapturing(false);
+          setIsSpeechRecognitionActive(false);
+          toast({
+            title: "Hand Lowered",
+            description: "You have lowered your hand.",
+          });
+        })
+        .receive("error", (err: Record<string, unknown>) => {
+          console.error("Error lowering hand:", err);
+          toast({
+            title: "Action Failed",
+            description: "Failed to lower hand. Please try again.",
+            variant: "destructive",
+          });
         });
-      })
-      .receive("error", (err: { [key: string]: any }) => {
-        console.error("Error raising hand:", err);
-        toast({
-          title: "Action Failed",
-          description: "Failed to raise hand. Please try again.",
-          variant: "destructive",
+    } else {
+      channelRef.current.push("raise_hand", { groupId, userId })
+        .receive("ok", (resp: Record<string, unknown>) => {
+          console.log("Hand raised:", resp);
+          setHandRaised(true);
+          updateParticipantHandStatus(userId, true);
+          toast({
+            title: "Hand Raised",
+            description: "You have raised your hand.",
+          });
+        })
+        .receive("error", (err: Record<string, unknown>) => {
+          console.error("Error raising hand:", err);
+          toast({
+            title: "Action Failed",
+            description: "Failed to raise hand. Please try again.",
+            variant: "destructive",
+          });
         });
-      });
-  }, [groupId, userId, updateParticipantHandStatus]);
+    }
+  }, [groupId, userId, handRaised, updateParticipantHandStatus, isSessionStarted]);
 
-  const lowerHand = useCallback(() => {
-    if (!channelRef.current || !userId || !groupId) return;
+  const passTurn = useCallback(() => {
+    if (!channelRef.current || !userId || !groupId || !isSessionStarted || !handRaised) return;
 
-    channelRef.current.push("lower_hand", { groupId, userId })
-      .receive("ok", (resp: { [key: string]: any }) => {
-        console.log("Hand lowered:", resp);
+    channelRef.current.push("pass_turn", { groupId, userId })
+      .receive("ok", (resp: Record<string, unknown>) => {
+        console.log("Turn passed:", resp);
         setHandRaised(false);
         updateParticipantHandStatus(userId, false);
         setIsSpeechEnabled(false);
@@ -349,27 +503,19 @@ export default function ScheduledGroupAudioRoom() {
         setIsAudioCapturing(false);
         setIsSpeechRecognitionActive(false);
         toast({
-          title: "Hand Lowered",
-          description: "You have lowered your hand.",
+          title: "Turn Passed",
+          description: "You have passed your turn.",
         });
       })
-      .receive("error", (err: { [key: string]: any }) => {
-        console.error("Error lowering hand:", err);
+      .receive("error", (err: Record<string, unknown>) => {
+        console.error("Error passing turn:", err);
         toast({
           title: "Action Failed",
-          description: "Failed to lower hand. Please try again.",
+          description: "Failed to pass turn. Please try again.",
           variant: "destructive",
         });
       });
-  }, [groupId, userId, updateParticipantHandStatus]);
-
-  const toggleHand = useCallback(() => {
-    if (handRaised) {
-      lowerHand();
-    } else {
-      raiseHand();
-    }
-  }, [handRaised, lowerHand, raiseHand]);
+  }, [groupId, userId, handRaised, updateParticipantHandStatus, isSessionStarted]);
 
   const toggleTalking = useCallback(() => {
     if (!isSpeechEnabled) return;
@@ -383,37 +529,6 @@ export default function ScheduledGroupAudioRoom() {
     setIsMuted(prevState => !prevState);
   }, []);
 
-  const endTurn = useCallback(() => {
-    if (!channelRef.current || !userId || !groupId) return;
-
-    channelRef.current.push("end_turn", { groupId, userId })
-      .receive("ok", (resp: { [key: string]: any }) => {
-        console.log("Turn ended:", resp);
-        setIsSpeechEnabled(false);
-        setIsTalking(false);
-        setIsAudioCapturing(false);
-        setIsSpeechRecognitionActive(false);
-        toast({
-          title: "Turn Ended",
-          description: "You have ended your turn.",
-        });
-      })
-      .receive("error", (err: { [key: string]: any }) => {
-        console.error("Error ending turn:", err);
-        toast({
-          title: "Action Failed",
-          description: "Failed to end turn. Please try again.",
-          variant: "destructive",
-        });
-      });
-  }, [groupId, userId]);
-
-  useEffect(() => {
-    if (scrollAreaRef.current) {
-      scrollAreaRef.current.scrollTop = scrollAreaRef.current.scrollHeight;
-    }
-  }, [messages]);
-
   useEffect(() => {
     if (activeSpeaker === userId) {
       setSpeakingTimeLeft(180);
@@ -424,7 +539,9 @@ export default function ScheduledGroupAudioRoom() {
       speakingTimerRef.current = setInterval(() => {
         setSpeakingTimeLeft(prevTime => {
           if (prevTime <= 1) {
-            clearInterval(speakingTimerRef.current!);
+            if (speakingTimerRef.current) {
+              clearInterval(speakingTimerRef.current);
+            }
             return 0;
           }
           return prevTime - 1;
@@ -445,179 +562,184 @@ export default function ScheduledGroupAudioRoom() {
     };
   }, [activeSpeaker, userId]);
 
+  const formatTime = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
+  const speakers = participants.filter(p => p.role === 'speaker' || p.isBot);
+  const listeners = participants.filter(p => p.role === 'listener' && !p.isBot);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-amber-50 to-orange-100 text-gray-800 flex flex-col">
-      <header className="bg-white shadow-md p-4 flex items-center justify-between sticky top-0 z-10">
-        <h1 className="text-2xl font-bold text-amber-700">Wellness Circle</h1>
+      <header className="bg-white shadow-sm p-4 flex items-center justify-between sticky top-0 z-10">
+        <h1 className="text-xl font-semibold text-amber-700">Wellness Circle</h1>
         <div className="flex items-center space-x-2">
           {connectionStatus === 'connected' ? (
-            <Wifi className="text-green-500" />
+            <Wifi className="text-green-500 h-4 w-4" />
           ) : (
-            <WifiOff className="text-red-500" />
+            <WifiOff className="text-red-500 h-4 w-4" />
           )}
-          <span className={connectionStatus === 'connected' ? 'text-green-500' : 'text-red-500'}>
+          <span className={`text-sm ${connectionStatus === 'connected' ? 'text-green-500' : 'text-red-500'}`}>
             {connectionStatus === 'connected' ? 'Connected' : 'Disconnected'}
           </span>
         </div>
       </header>
-      <main className="flex-1 flex flex-col lg:flex-row p-6 gap-6 overflow-hidden">
-        <section className="lg:w-2/3 flex flex-col gap-6">
-          <Card className="bg-white border-amber-200">
-            <CardHeader>
-              <CardTitle className="flex items-center text-amber-700">
-                <Users className="mr-2" /> Participants
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                <AnimatePresence>
-                  {participants.map(participant => (
-                    <motion.div
-                      key={participant.id}
-                      initial={{ opacity: 0, scale: 0.9 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0, scale: 0.9 }}
-                      transition={{ duration: 0.2 }}
-                      className={`flex flex-col items-center p-3 rounded-lg ${
-                        participant.isSpeaking ? 'bg-amber-100 ring-2 ring-amber-500' : 'bg-white'
-                      } transition-all duration-300 ease-in-out`}
-                    >
-                      <Avatar className="h-16 w-16 mb-2 ring-2 ring-amber-300">
-                        <AvatarImage src={participant.avatar} alt={participant.full_name} />
-                        <AvatarFallback>{participant.full_name[0]}</AvatarFallback>
-                      </Avatar>
-                      <div className="text-center">
-                        <div className="font-medium text-gray-800 truncate max-w-[100px]">{participant.full_name}</div>
-                        <div className="text-xs text-gray-600 flex items-center justify-center gap-1">
-                          {participant.isSpeaking && <Sun className="w-3 h-3 text-amber-500" />}
-                          {participant.isBot && <span className="text-blue-500">Facilitator</span>}
-                          {participant.handRaised && !participant.isSpeaking && <Hand className="w-3 h-3 text-yellow-500" />}
-                          <span>{participant.role}</span>
-                        </div>
-                      </div>
-                    </motion.div>
-                  ))}
-                </AnimatePresence>
+      <main className="flex-1 flex flex-col p-4 max-w-3xl mx-auto w-full">
+        {!isSessionStarted && countdownTime > 0 && (
+          <div className="text-center mb-4">
+            <h2 className="text-2xl font-semibold text-amber-700 mb-2">Session starts in</h2>
+            <div className="text-4xl font-bold text-amber-600">{formatTime(countdownTime)}</div>
+          </div>
+        )}
+        <Card className="bg-white shadow-lg rounded-xl overflow-hidden mb-4">
+          <CardContent className="p-6">
+            <h2 className="text-lg font-semibold text-amber-700 mb-4">Speakers & Facilitators</h2>
+            <div className="grid grid-cols-4 gap-4">
+              {speakers.map(participant => (
+                <div key={participant.id} className="flex flex-col items-center">
+                  <Avatar className={`h-16 w-16 mb-2 ${participant.isSpeaking ? 'ring-2 ring-amber-500' : ''}`}>
+                    <AvatarImage src={participant.avatar} alt={participant.full_name} />
+                    <AvatarFallback>{participant.full_name[0]}</AvatarFallback>
+                  </Avatar>
+                  <span className="text-xs text-center truncate w-full">{participant.full_name}</span>
+                  {participant.handRaised && <Hand className="w-4 h-4 text-yellow-500 mt-1" />}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="bg-white shadow-lg rounded-xl overflow-hidden mb-4">
+          <CardContent className="p-6">
+            <h2 className="text-lg font-semibold text-amber-700 mb-4">Listeners</h2>
+            <div className="grid grid-cols-4 gap-4">
+              {listeners.map(participant => (
+                <div key={participant.id} className="flex flex-col items-center">
+                  <Avatar className={`h-16 w-16 mb-2 ${participant.isSpeaking ? 'ring-2 ring-amber-500' : ''}`}>
+                    <AvatarImage src={participant.avatar} alt={participant.full_name} />
+                    <AvatarFallback>{participant.full_name[0]}</AvatarFallback>
+                  </Avatar>
+                  <span className="text-xs text-center truncate w-full">{participant.full_name}</span>
+                  {participant.handRaised && <Hand className="w-4 h-4 text-yellow-500 mt-1" />}
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+        <div className="flex-1 flex flex-col">
+          {isInCall ? (
+            <div className="flex flex-col items-center justify-center space-y-4">
+              <div className="text-2xl font-semibold text-amber-700">
+                {activeSpeaker === userId ? 'You are speaking' : 'Listening'}
               </div>
-            </CardContent>
-          </Card>
-          <Card className="bg-white border-amber-200 flex-grow overflow-hidden">
-            <CardHeader>
-              <CardTitle className="text-amber-700 flex items-center">
-                <MessageSquare className="mr-2" /> Conversation
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="p-0">
-              <ScrollArea className="h-[calc(100vh-400px)] px-4">
-                <div ref={scrollAreaRef} className="space-y-4 pb-4">
-                  {messages.map(message => (
-                    <motion.div
-                      key={message.id}
-                      initial={{ opacity: 0, y: 20 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className={`p-3 rounded-lg text-gray-800 text-sm ${
-                        message.user_id === 'bot' ? 'bg-amber-50' : 'bg-white border border-amber-200'
-                      }`}
-                    >
-                      <div className="font-semibold text-amber-700 mb-1">{message.user_id === 'bot' ? 'Facilitator' : message.user_id}</div>
-                      <div className="text-gray-700">{message.content}</div>
-                    </motion.div>
-                  ))}
+              {activeSpeaker === userId && (
+                <div className="text-lg text-amber-600">
+                  Time left: {formatTime(speakingTimeLeft)}
                 </div>
-              </ScrollArea>
-            </CardContent>
-          </Card>
-        </section>
-        <aside className="lg:w-1/3 flex flex-col gap-6">
-          <Card className="bg-white border-amber-200">
-            <CardHeader>
-              <CardTitle className="text-amber-700">Room Controls</CardTitle>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {!isInCall ? (
-                <Button 
-                  onClick={joinCall} 
-                  className="w-full bg-amber-500 hover:bg-amber-600 text-white transition-colors duration-300"
-                  disabled={connectionStatus !== 'connected' || !channelJoined}
-                >
-                  Join Circle
-                </Button>
-              ) : (
-                <>
-                  {activeSpeaker !== userId && (
-                    <Button 
-                      onClick={toggleHand}
-                      className={`w-full ${
-                        handRaised 
-                          ? "bg-yellow-500 hover:bg-yellow-600" 
-                          : "bg-blue-500 hover:bg-blue-600"
-                      } text-white transition-colors duration-300`}
-                    >
-                      {handRaised ? <HandMetal className="mr-2 h-4 w-4" /> : <Hand className="mr-2 h-4 w-4" />}
-                      {handRaised ? 'Lower Hand' : 'Raise Hand'}
-                    </Button>
-                  )}
-                  {activeSpeaker === userId && (
-                    <>
-                      <Button 
-                        onClick={toggleTalking}
-                        className={`w-full ${
-                          isTalking 
-                            ? "bg-green-500 hover:bg-green-600" 
-                            : "bg-gray-400 hover:bg-gray-500"
-                        } text-white transition-colors duration-300`}
-                        disabled={!isSpeechEnabled}
-                      >
-                        {isTalking ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
-                        {isTalking ? 'Stop Sharing' : 'Start Sharing'}
-                      </Button>
-                      <Button 
-                        onClick={toggleMute}
-                        className={`w-full ${
-                          isMuted 
-                            ? "bg-red-500 hover:bg-red-600" 
-                            : "bg-gray-400 hover:bg-gray-500"
-                        } text-white transition-colors duration-300`}
-                      >
-                        {isMuted ? <VolumeX className="mr-2 h-4 w-4" /> : <Volume2 className="mr-2 h-4 w-4" />}
-                        {isMuted ? 'Unmute' : 'Mute'}
-                      </Button>
-                      <Button 
-                        onClick={endTurn}
-                        className="w-full bg-yellow-500 hover:bg-yellow-600 text-white transition-colors duration-300"
-                      >
-                        End Turn
-                      </Button>
-                    </>
-                  )}
-                  <Button onClick={leaveCall} className="w-full bg-red-500 hover:bg-red-600 text-white transition-colors duration-300">
-                    <LogOut className="mr-2 h-4 w-4" /> Leave Circle
-                  </Button>
-                </>
               )}
-            </CardContent>
-          </Card>
-          {activeSpeaker === userId && (
-            <Card className="bg-white border-amber-200">
-              <CardHeader>
-                <CardTitle className="text-amber-700">Speaking Timer</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="text-center text-3xl font-bold text-amber-600">
-                  {Math.floor(speakingTimeLeft / 60)}:{(speakingTimeLeft % 60).toString().padStart(2, '0')}
-                </div>
-                <div className="mt-4 h-2 bg-amber-100 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-amber-500 transition-all duration-1000 ease-linear"
-                    style={{ width: `${(speakingTimeLeft / 180) * 100}%` }}
-                  />
-                </div>
-              </CardContent>
-            </Card>
+              <div className="flex space-x-4">
+                <Button
+                  onClick={toggleHand}
+                  className={`${
+                    handRaised ? 'bg-yellow-500 hover:bg-yellow-600' : 'bg-amber-500 hover:bg-amber-600'
+                  } text-white`}
+                  disabled={!isSessionStarted}
+                >
+                  <Hand className="mr-2 h-4 w-4" />
+                  {handRaised ? 'Lower Hand' : 'Raise Hand'}
+                </Button>
+                {handRaised && (
+                  <Button
+                    onClick={passTurn}
+                    className="bg-gray-500 hover:bg-gray-600 text-white"
+                    disabled={!isSessionStarted}
+                  >
+                    <FastForward className="mr-2 h-4 w-4" />
+                    Pass Turn
+                  </Button>
+                )}
+                {activeSpeaker === userId && (
+                  <>
+                    <Button
+                      onClick={toggleTalking}
+                      className={`${
+                        isTalking ? 'bg-green-500 hover:bg-green-600' : 'bg-gray-400 hover:bg-gray-500'
+                      } text-white`}
+                      disabled={!isSpeechEnabled}
+                    >
+                      {isTalking ? <MicOff className="mr-2 h-4 w-4" /> : <Mic className="mr-2 h-4 w-4" />}
+                      {isTalking ? 'Stop' : 'Start'}
+                    </Button>
+                    <Button
+                      onClick={toggleMute}
+                      className={`${
+                        isMuted ? 'bg-red-500 hover:bg-red-600' : 'bg-gray-400 hover:bg-gray-500'
+                      } text-white`}
+                    >
+                      {isMuted ? <VolumeX className="mr-2 h-4 w-4" /> : <Volume2 className="mr-2 h-4 w-4" />}
+                      {isMuted ? 'Unmute' : 'Mute'}
+                    </Button>
+                  </>
+                )}
+              </div>
+            </div>
+          ) : (
+            <Button 
+              onClick={joinCall} 
+              className="bg-amber-500 hover:bg-amber-600 text-white text-lg py-6"
+              disabled={connectionStatus !== 'connected' || !channelJoined}
+            >
+              Join Wellness Circle
+            </Button>
           )}
-        </aside>
+        </div>
       </main>
+      <footer className="bg-white shadow-sm p-4 sticky bottom-0">
+        <div className="flex justify-between items-center max-w-3xl mx-auto">
+          {isInCall && (
+            <Button onClick={leaveCall} className="bg-red-500 hover:bg-red-600 text-white">
+              <LogOut className="mr-2 h-4 w-4" /> Leave
+            </Button>
+          )}
+        </div>
+      </footer>
+      <Dialog open={isNameModalOpen} onOpenChange={setIsNameModalOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Enter Your Name</DialogTitle>
+            <DialogDescription>
+              Please enter your first name and last initial to join the circle.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">
+                First Name
+              </Label>
+              <Input
+                id="firstName"
+                value={firstName}
+                onChange={(e) => setFirstName(e.target.value)}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label className="text-right">
+                Last Initial
+              </Label>
+              <Input
+                id="lastInitial"
+                value={lastInitial}
+                onChange={(e) => setLastInitial(e.target.value)}
+                className="col-span-3"
+                maxLength={1}
+              />
+            </div>
+          </div>
+          <Button onClick={handleNameSubmit}>Join Circle</Button>
+        </DialogContent>
+      </Dialog>
       {activeSpeaker === userId && (
         <div className="hidden">
           <AudioCapture onAudioInput={handleAudioInput} isActive={isAudioCapturing && isTalking && !isMuted} />
