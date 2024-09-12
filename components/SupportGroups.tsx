@@ -71,7 +71,7 @@ const CategoryButton: React.FC<CategoryButtonProps> = ({ label, isActive, onClic
 );
 
 function SupportRoomsContent() {
-  // const [userId, setUserId] = useState<string>('');
+  const [userId, setUserId] = useState<string>('');
   const [nextSessionTimes, setNextSessionTimes] = useState<{ [key: string]: string }>({});
   const [currentTime, setCurrentTime] = useState<Date>(new Date());
   const [activeCategory, setActiveCategory] = useState<string>('ALL');
@@ -80,18 +80,18 @@ function SupportRoomsContent() {
 
   const groupChatAssistants = useMemo(() => PRESET_ASSISTANTS.filter(assistant => assistant.supportsGroupChat), []);
 
-  // useEffect(() => {
-  //   const fetchUserData = async () => {
-  //     const { data: { session } } = await supabase.auth.getSession();
-  //     if (session?.user) {
-  //       setUserId(session.user.id);
-  //     } else {
-  //       router.push('/login');
-  //     }
-  //   };
+  useEffect(() => {
+    const fetchUserData = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.user) {
+        setUserId(session.user.id);
+      } else {
+        router.push('/login');
+      }
+    };
 
-  //   fetchUserData();
-  // }, [router, supabase.auth]);
+    fetchUserData();
+  }, [router, supabase.auth]);
 
   useEffect(() => {
     const updateNextSessionTimes = () => {
