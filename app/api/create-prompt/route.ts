@@ -1,23 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { HumeClient } from 'hume';
-import { getHumeAccessToken } from '@/utils/getHumeAccessToken';
 
 export async function POST(req: NextRequest) {
   try {
     const { name, text } = await req.json();
-    const accessToken = await getHumeAccessToken();
+    const apiKey = process.env.HUME_API_KEY;
 
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Failed to get Hume access token' }, { status: 401 });
+    if (!apiKey) {
+      return NextResponse.json({ error: 'Hume API key is not set' }, { status: 500 });
     }
-    console.log(accessToken)
-    const client = new HumeClient({ accessToken });
-    const response = await client.empathicVoice.prompts.createPrompt({
-      name,
-      text
+
+    const response = await fetch('https://api.hume.ai/v0/evi/prompts', {
+      method: 'POST',
+      headers: {
+        'X-Hume-Api-Key': apiKey,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        name: name,
+        text: text
+      }),
     });
 
-    return NextResponse.json(response);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Failed to create prompt: ${JSON.stringify(errorData)}`);
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error creating prompt:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

@@ -1,50 +1,60 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { HumeClient, Hume } from 'hume';
-import { getHumeAccessToken } from '@/utils/getHumeAccessToken';
 
 export async function POST(req: NextRequest) {
   try {
     const { name, promptId } = await req.json();
-    const accessToken = await getHumeAccessToken();
+    const apiKey = process.env.HUME_API_KEY;
 
-    if (!accessToken) {
-      return NextResponse.json({ error: 'Failed to get Hume access token' }, { status: 401 });
+    if (!apiKey) {
+      return NextResponse.json({ error: 'Hume API key is not set' }, { status: 500 });
     }
 
-    const client = new HumeClient({ accessToken });
-    const response = await client.empathicVoice.configs.createConfig({
-      name,
-      prompt: {
-        id: promptId,
-        version: 0
+    const response = await fetch('https://api.hume.ai/v0/evi/configs', {
+      method: 'POST',
+      headers: {
+        'X-Hume-Api-Key': apiKey,
+        'Content-Type': 'application/json',
       },
-      eviVersion: "2",
-      voice: {
-        provider: "HUME_AI",
-        name: "SAMPLE VOICE"
-      },
-      languageModel: {
-        modelProvider: Hume.PostedLanguageModelModelProvider.Anthropic,
-        modelResource: "claude-3-5-sonnet-20240620",
-        temperature: 1
-      },
-      eventMessages: {
-        onNewChat: {
-          enabled: false,
-          text: ""
+      body: JSON.stringify({
+        evi_version: "2",
+        name: name,
+        prompt: {
+          id: promptId,
+          version: 0
         },
-        onInactivityTimeout: {
-          enabled: false,
-          text: ""
+        voice: {
+          provider: "HUME_AI",
+          name: "KORA"
         },
-        onMaxDurationTimeout: {
-          enabled: false,
-          text: ""
+        language_model: {
+          model_provider: "ANTHROPIC",
+          model_resource: "claude-3-5-sonnet-20240620",
+          temperature: 1
+        },
+        event_messages: {
+          on_new_chat: {
+            enabled: false,
+            text: ""
+          },
+          on_inactivity_timeout: {
+            enabled: false,
+            text: ""
+          },
+          on_max_duration_timeout: {
+            enabled: false,
+            text: ""
+          }
         }
-      }
+      }),
     });
 
-    return NextResponse.json(response);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`Failed to create config: ${JSON.stringify(errorData)}`);
+    }
+
+    const data = await response.json();
+    return NextResponse.json(data);
   } catch (error) {
     console.error('Error creating config:', error);
     return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });

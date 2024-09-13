@@ -35,7 +35,7 @@ export default function StartCall() {
                 onClick={() => {
                   connect()
                     .then(() => {})
-                    .catch(() => {})
+                    .catch((error) => {console.log(error)})
                     .finally(() => {});
                 }}
               >

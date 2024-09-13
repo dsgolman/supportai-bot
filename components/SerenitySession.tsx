@@ -29,7 +29,7 @@ const promptSuggestions = [
   { label: "Custom", value: "custom", text: "Fill in the prompt text here." }
 ];
 
-export default function SerenitySession() {
+export default function SerenitySession({accessToken}) {
   const [coach, setCoach] = useState<Coach | null>(null);
   const [coaches, setCoaches] = useState<Coach[]>([]);
   const [isCallStarted, setIsCallStarted] = useState(false);
@@ -141,8 +141,10 @@ export default function SerenitySession() {
   };
 
   if (isCallStarted) {
+    console.log(accessToken, configId, sessionName, coach);
     return (
       <Chat
+        accessToken={accessToken}
         configId={configId}
         coach={coach}
         sessionName={sessionName}

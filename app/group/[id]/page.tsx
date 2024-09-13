@@ -234,9 +234,12 @@ export default function GroupPage() {
         });
 
       channel.on("active_speaker", (payload: { userId: string }) => {
-        console.log("Active speaker changed:", payload);
-        setActiveSpeaker(payload.userId);
-        updateParticipantSpeakingStatus(payload.userId, true);
+        setTimeout(() => {
+          console.log("Active speaker changed:", payload);
+          setActiveSpeaker(payload.userId);
+          updateParticipantSpeakingStatus(payload.userId, true);
+        }, 10000);
+       
       });
 
       channel.on("participants_update", (payload: { participants: Participant[] }) => {
@@ -277,6 +280,11 @@ export default function GroupPage() {
       channel.on("session_started", (payload: { start_time: string }) => {
         setIsSessionStarted(true);
         setSessionStartTime(new Date(payload.start_time));
+      });
+
+      channel.on("bot_message", (payload: { [key: string]: any }) => {
+        console.log("Received new message:", payload);
+        setMessages(prev => [...prev, { sender: 'Bot', content: payload.message.trim() }]);
       });
 
       return () => {
@@ -452,27 +460,27 @@ export default function GroupPage() {
 
   const leaveCall = useCallback(() => {
     if (!channelRef.current || !userId || !groupId) return;
-
-    channelRef.current.push("end_call", { groupId })
-      .receive("ok", (resp: Record<string, unknown>) => {
-        console.log("Left call:", resp);
-        setIsInCall(false);
-        setHandRaised(false);
-        setIsTalking(false);
-        setIsSpeechEnabled(false);
-        toast({
-          title: "Left Circle",
-          description: `You have successfully left the ${groupName}.`,
-        });
-      })
-      .receive("error", (err: Record<string, unknown>) => {
-        console.error("Error leaving call:", err);
-        toast({
-          title: "Leave Error",
-          description: `Failed to leave the ${groupName}. Please try again.`,
-          variant: "destructive",
-        });
-      });
+      window.location.href= `/support`
+    // channelRef.current.push("end_call", { groupId })
+    //   .receive("ok", (resp: Record<string, unknown>) => {
+    //     console.log("Left call:", resp);
+    //     setIsInCall(false);
+    //     setHandRaised(false);
+    //     setIsTalking(false);
+    //     setIsSpeechEnabled(false);
+    //     toast({
+    //       title: "Left Circle",
+    //       description: `You have successfully left the ${groupName}.`,
+    //     });
+    //   })
+    //   .receive("error", (err: Record<string, unknown>) => {
+    //     console.error("Error leaving call:", err);
+    //     toast({
+    //       title: "Leave Error",
+    //       description: `Failed to leave the ${groupName}. Please try again.`,
+    //       variant: "destructive",
+    //     });
+    //   });
   }, [groupId, userId, groupName]);
 
   const toggleHand = useCallback(() => {
