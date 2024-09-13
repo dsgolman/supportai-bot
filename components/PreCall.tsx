@@ -6,7 +6,7 @@ import { VoiceEvent, VoiceMessage } from "realtime-ai";
 import { useVoiceClient, useVoiceClientEvent, useVoiceClientTransportState, useVoiceClientMediaTrack } from "realtime-ai-react";
 import { Button } from "./ui/button";
 import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter } from "./ui/card";
-import { Configure } from "./Configure";
+// import { Configure } from "./Configure";
 import Session from "./Session";
 import { useAssistant } from "@/components/assistantContext";
 import { Alert } from "./ui/alert";
@@ -265,11 +265,7 @@ export function PreCall({ isGroupChat, userId, onComplete }: { isGroupChat: bool
           <Ear className="size-7 md:size-5 text-primary-400" />
           Works best in a quiet environment with a good internet connection.
         </div>
-        <Configure
-          startAudioOff={startAudioOff}
-          handleStartAudioOff={() => setStartAudioOff(!startAudioOff)}
-          state={appState}
-        />
+
       </CardContent>
       <CardFooter id="card-footer">
         <Button

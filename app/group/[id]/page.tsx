@@ -27,7 +27,7 @@ interface Participant {
   avatar: string;
   isSpeaking: boolean;
   isBot: boolean;
-  role: 'speaker' | 'listener';
+  role: string;
   handRaised: boolean;
 }
 
@@ -195,7 +195,7 @@ export default function GroupPage() {
         avatar: profile.avatar_url,
         isSpeaking: false,
         isBot: false,
-        role: 'listener' as const,
+        role: 'listener',
         handRaised: false
       }));
 
@@ -205,7 +205,7 @@ export default function GroupPage() {
         avatar: '/placeholder.svg?height=100&width=100',
         isSpeaking: false,
         isBot: true,
-        role: 'speaker' as const,
+        role: 'speaker',
         handRaised: false
       });
 
@@ -837,7 +837,7 @@ export default function GroupPage() {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="firstName" className="text-right">
+              <Label className="text-right">
                 First Name
               </Label>
               <Input
@@ -848,7 +848,7 @@ export default function GroupPage() {
               />
             </div>
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="lastInitial" className="text-right">
+              <Label className="text-right">
                 Last Initial
               </Label>
               <Input

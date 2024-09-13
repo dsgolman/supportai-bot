@@ -29,7 +29,7 @@ const promptSuggestions = [
   { label: "Custom", value: "custom", text: "Fill in the prompt text here." }
 ];
 
-export default function SerenitySession({accessToken}) {
+export default function SerenitySession({ accessToken }: { accessToken: string }) {
   const [coach, setCoach] = useState<Coach | null>(null);
   const [coaches, setCoaches] = useState<Coach[]>([]);
   const [isCallStarted, setIsCallStarted] = useState(false);
