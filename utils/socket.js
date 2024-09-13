@@ -2,16 +2,16 @@ import { Socket } from 'phoenix';
 
 let socket = null;
 
-export function getSocket(userId, groupId) {
+export function getSocket(userId, groupId, configId) {
   if (!socket) {
-    socket = new Socket(process.env.NEXT_PUBLIC_SOCKET_URL, { params: { userId: userId, groupId: groupId } });
+    socket = new Socket(process.env.NEXT_PUBLIC_SOCKET_URL, { params: { userId: userId, groupId: groupId, configId: configId } });
     socket.connect();
   }
   return socket;
 }
 
-export function getChannel(userId, groupId) {
-  const socket = getSocket(userId, groupId);
+export function getChannel(userId, groupId, configId) {
+  const socket = getSocket(userId, groupId, configId);
 
   // Join WebRTC channel
   // const webrtcChannel = socket.channel(`webrtc:${groupId}`, { userId });
@@ -31,7 +31,7 @@ export function getChannel(userId, groupId) {
   // });
 
   // Join Evi lobby channel for messaging/hand raising
-  const channel = socket.channel(`evi:lobby`, { userId, groupId });
+  const channel = socket.channel(`evi:lobby`, { userId, groupId, configId });
 
   // eviChannel.on("user_raised_hand", payload => {
   //   console.log("User raised hand", payload);

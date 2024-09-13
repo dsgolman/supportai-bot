@@ -1,161 +1,243 @@
 'use client';
 
-import React, { ReactNode } from 'react';
+import React from 'react';
 import Link from "next/link";
-import { motion } from "framer-motion";
-import { Sun, Users, Heart, Mic, MessageSquare, ArrowRight, Bell } from "lucide-react";
+import { useRouter } from 'next/navigation';
+import { Button } from "@/components/ui/button";
 
-interface FeatureCardProps {
-  icon: ReactNode;
-  title: string;
-  description: string;
-}
+export default function LandingPage() {
+  const router = useRouter();
 
-function FeatureCard({ icon, title, description }: FeatureCardProps) {
+  const handleJoinCircle = () => {
+    console.log("Joining a Serenity Circle");
+    // Implement join circle logic here
+  };
+
+  const handleStartCall = () => {
+    console.log("Starting a call with Serenity");
+    // Implement start call logic here
+  };
+
+  const handleJoinAnonymously = () => {
+    console.log("Joining anonymously");
+    // Implement anonymous join logic here
+  };
+
+  const handleChatWithCoach = () => {
+    console.log("Chatting with Serenity Coach");
+    // Implement chat with coach logic here
+  };
+
   return (
-    <div className="bg-white p-6 rounded-lg shadow-sm border border-[#e0d0c1]">
-      <div className="mb-4">{icon}</div>
-      <h3 className="text-xl font-semibold mb-2 text-[#b7410e]">{title}</h3>
-      <p className="text-[#5c4033]">{description}</p>
-    </div>
-  );
-}
-
-interface JourneyStepProps {
-  number: string;
-  title: string;
-  description: string;
-}
-
-function JourneyStep({ number, title, description }: JourneyStepProps) {
-  return (
-    <div className="bg-white p-6 rounded-lg shadow-sm border border-[#e0d0c1]">
-      <div className="text-4xl font-bold text-[#f4a261] mb-2">{number}</div>
-      <h3 className="text-xl font-semibold mb-2 text-[#b7410e]">{title}</h3>
-      <p className="text-[#5c4033]">{description}</p>
-    </div>
-  );
-}
-
-export function LandingPage() {
-  return (
-    <div className="min-h-screen bg-[#fdf6e3] text-[#5c4033] font-sans">
-      <main className="container mx-auto px-4 py-20">
-        <header className="mb-20">
-          <nav className="flex justify-between items-center">
-            <div className="text-3xl font-bold text-[#b7410e]">
-              Wellness Circles
+    <div className="flex flex-col min-h-[100dvh] bg-[#f5f5f5] text-[#333]">
+      <header className="px-4 lg:px-6 h-14 flex items-center bg-[#fff] shadow-md fixed top-0 left-0 right-0 z-50">
+        <Link href="#" className="flex items-center justify-center">
+          <SerenityIcon className="h-6 w-6 text-[#7b61ff]" />
+          <span className="ml-2 font-bold text-[#7b61ff]">Serenity Circles</span>
+        </Link>
+        <nav className="ml-auto flex gap-4 sm:gap-6">
+          <Link href="#" className="text-sm font-medium hover:text-[#7b61ff] transition-colors">
+            Circles
+          </Link>
+          <Link href="#" className="text-sm font-medium hover:text-[#7b61ff] transition-colors">
+            About
+          </Link>
+          <Link href="#" className="text-sm font-medium hover:text-[#7b61ff] transition-colors">
+            Pricing
+          </Link>
+          <Link href="#" className="text-sm font-medium hover:text-[#7b61ff] transition-colors">
+            Contact
+          </Link>
+        </nav>
+      </header>
+      <main className="flex-1 pt-14">
+        <section className="min-h-[100dvh] flex items-center w-full py-12 md:py-24 lg:py-32 xl:py-48 bg-[#fff]">
+          <div className="container grid gap-6 px-4 md:px-6 lg:grid-cols-2 lg:gap-10">
+            <div className="space-y-4">
+              <h1 className="text-3xl font-bold tracking-tighter sm:text-4xl md:text-5xl lg:text-6xl/none text-[#333]">
+                Find peace with <span className="text-[#7b61ff]">Serenity</span>
+              </h1>
+              <p className="max-w-[600px] text-[#666] md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+                Join Serenity Circles, your personalized AI-powered support community available 24/7 for mental,
+                emotional, and physical well-being.
+              </p>
+              <div className="flex flex-col gap-4 min-[400px]:flex-row">
+                <Button
+                  onClick={handleJoinCircle}
+                  className="inline-flex h-12 items-center justify-center rounded-md bg-[#7b61ff] px-8 text-lg font-medium text-white shadow-lg transition-colors hover:bg-[#6247ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7b61ff] focus-visible:ring-offset-2"
+                >
+                  Join a Serenity Circle
+                </Button>
+                <Button
+                  onClick={handleChatWithCoach}
+                  variant="outline"
+                  className="inline-flex h-12 items-center justify-center rounded-md border-2 border-[#7b61ff] bg-white px-8 text-lg font-medium text-[#7b61ff] shadow-lg transition-colors hover:bg-[#f0f0f0] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7b61ff] focus-visible:ring-offset-2"
+                >
+                  Chat with Serenity Coach
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center space-x-4">
-              <Bell className="w-6 h-6 text-[#5c4033]" />
-              <Link 
-                href="/login" 
-                className="bg-white text-[#5c4033] px-4 py-2 rounded-full text-sm font-medium border border-[#5c4033] hover:bg-[#f0e6d2] transition-colors"
-              >
-                Login
-              </Link>
+            <div className="flex flex-col items-center justify-center">
+              <img
+                src="/placeholder.svg?height=550&width=550"
+                alt="Serenity Circles"
+                className="mx-auto aspect-video overflow-hidden rounded-xl object-cover sm:w-full lg:aspect-square"
+              />
             </div>
-          </nav>
-        </header>
-
-        <section className="text-center mb-20">
-          <motion.h1 
-            className="text-5xl md:text-7xl font-bold mb-6 text-[#b7410e]"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8 }}
-          >
-            Find Solace in Our Circles
-          </motion.h1>
-          <motion.p 
-            className="text-xl md:text-2xl text-[#5c4033] mb-10 max-w-3xl mx-auto"
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
-          >
-            Join our supportive community for mental, emotional, and physical well-being. 
-            Experience the warmth of connection in our virtual circles.
-          </motion.p>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.4 }}
-          >
-            <Link 
-              href="/support" 
-              className="bg-[#f4a261] text-white px-8 py-4 rounded-full text-lg font-medium hover:bg-[#e76f51] transition-colors inline-flex items-center"
-            >
-              Join a Circle <ArrowRight className="ml-2" />
-            </Link>
-          </motion.div>
-        </section>
-
-        <section className="grid md:grid-cols-2 lg:grid-cols-3 gap-10 mb-20">
-          <FeatureCard 
-            icon={<Sun className="w-10 h-10 text-[#f4a261]" />}
-            title="Find Your Light"
-            description="Discover inner peace and clarity through guided discussions and shared experiences."
-          />
-          <FeatureCard 
-            icon={<Users className="w-10 h-10 text-[#f4a261]" />}
-            title="Supportive Community"
-            description="Connect with others who understand your journey in a safe, nurturing environment."
-          />
-          <FeatureCard 
-            icon={<Heart className="w-10 h-10 text-[#f4a261]" />}
-            title="Emotional Healing"
-            description="Process your emotions and find comfort in our specialized healing circles."
-          />
-          <FeatureCard 
-            icon={<Mic className="w-10 h-10 text-[#f4a261]" />}
-            title="Voice Connections"
-            description="Engage in audio rooms for a more personal and immersive experience."
-          />
-          <FeatureCard 
-            icon={<MessageSquare className="w-10 h-10 text-[#f4a261]" />}
-            title="24/7 Support"
-            description="Access our circles anytime, ensuring support is always within reach."
-          />
-          <FeatureCard 
-            icon={<Sun className="w-10 h-10 text-[#f4a261]" />}
-            title="Holistic Wellness"
-            description="Address mental, emotional, and physical aspects of well-being in our comprehensive approach."
-          />
-        </section>
-
-        <section className="text-center mb-20">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6 text-[#b7410e]">
-            Your Journey to Inner Peace
-          </h2>
-          <p className="text-xl text-[#5c4033] mb-10 max-w-3xl mx-auto">
-            Embark on a transformative journey with our wellness circles. 
-            Here's how you can find solace and growth in our community:
-          </p>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-8">
-            <JourneyStep number="1" title="Join a Circle" description="Choose a wellness circle that resonates with your current needs." />
-            <JourneyStep number="2" title="Connect & Share" description="Engage with others in a safe, moderated environment." />
-            <JourneyStep number="3" title="Reflect & Grow" description="Absorb insights and apply them to your daily life." />
-            <JourneyStep number="4" title="Return & Flourish" description="Come back regularly to continue your growth and healing." />
           </div>
         </section>
-
-        <section className="text-center">
-          <h2 className="text-3xl md:text-4xl font-bold mb-6 text-[#b7410e]">
-            Ready to Find Your Solace?
-          </h2>
-          <p className="text-xl text-[#5c4033] mb-10 max-w-3xl mx-auto">
-            Join our community today and start your journey towards inner peace and well-being.
-          </p>
-          <Link 
-            href="/signup" 
-            className="bg-[#f4a261] text-white px-8 py-4 rounded-full text-lg font-medium hover:bg-[#e76f51] transition-colors inline-flex items-center"
-          >
-            Get Started <ArrowRight className="ml-2" />
-          </Link>
+        <section className="min-h-[100dvh] flex items-center w-full py-12 md:py-24 lg:py-32 bg-[#f5f5f5]">
+          <div className="container px-4 md:px-6">
+            <div className="flex flex-col items-center justify-center space-y-4 text-center">
+              <div className="space-y-2">
+                <div className="inline-block rounded-lg bg-[#ddd] px-3 py-1 text-sm text-[#666]">Serenity Circles</div>
+                <h2 className="text-3xl font-bold tracking-tighter sm:text-5xl text-[#333]">
+                  Discover the Power of AI-Supported Community
+                </h2>
+                <p className="max-w-[900px] text-[#666] md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+                  Our AI-powered support groups offer a safe and inclusive space for you to connect, heal, and grow
+                  alongside like-minded individuals. Experience the transformative power of Serenity-driven wellness.
+                </p>
+              </div>
+            </div>
+            <div className="mx-auto grid max-w-5xl items-center gap-6 py-12 lg:grid-cols-2 lg:gap-12">
+              <div className="flex flex-col justify-center space-y-4">
+                <ul className="grid gap-6">
+                  <li>
+                    <div className="grid gap-1">
+                      <h3 className="text-xl font-bold text-[#333]">AI-Powered Support</h3>
+                      <p className="text-[#666]">
+                        Benefit from Serenity's advanced AI that provides personalized support and insights tailored to your unique journey.
+                      </p>
+                    </div>
+                  </li>
+                  <li>
+                    <div className="grid gap-1">
+                      <h3 className="text-xl font-bold text-[#333]">Voice-First Interaction</h3>
+                      <p className="text-[#666]">
+                        Engage in natural, voice-based conversations that feel as comfortable as talking to a supportive friend.
+                      </p>
+                    </div>
+                  </li>
+                  <li>
+                    <div className="grid gap-1">
+                      <h3 className="text-xl font-bold text-[#333]">24/7 Availability</h3>
+                      <p className="text-[#666]">
+                        Access Serenity Circles whenever you need support, guidance, or a listening ear.
+                      </p>
+                    </div>
+                  </li>
+                  <li>
+                    <div className="grid gap-1">
+                      <h3 className="text-xl font-bold text-[#333]">Privacy Focused</h3>
+                      <p className="text-[#666]">
+                        Enjoy complete anonymity and confidentiality in all your interactions within Serenity Circles.
+                      </p>
+                    </div>
+                  </li>
+                  <li>
+                    <div className="grid gap-1">
+                      <h3 className="text-xl font-bold text-[#333]">Goal-Oriented Growth</h3>
+                      <p className="text-[#666]">
+                        Set and achieve personal growth goals with Serenity's guidance and support.
+                      </p>
+                    </div>
+                  </li>
+                </ul>
+              </div>
+              <img
+                src="/placeholder.svg?height=310&width=550"
+                alt="Serenity Circles Features"
+                className="mx-auto aspect-video overflow-hidden rounded-xl object-cover object-center sm:w-full lg:order-last"
+              />
+            </div>
+          </div>
+        </section>
+        <section className="min-h-[100dvh] flex items-center w-full py-12 md:py-24 lg:py-32 bg-[#fff]">
+          <div className="container grid items-center gap-6 px-4 md:px-6 lg:grid-cols-2 lg:gap-10">
+            <div className="space-y-2">
+              <h2 className="text-3xl font-bold tracking-tighter md:text-4xl/tight text-[#333]">
+                Join a Serenity Circle Today
+              </h2>
+              <p className="max-w-[600px] text-[#666] md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+                Experience the transformative power of AI-supported wellness. Start your journey towards holistic well-being with Serenity.
+              </p>
+            </div>
+            <div className="flex flex-col gap-4 min-[400px]:flex-row lg:justify-end">
+              <Button
+                onClick={handleJoinCircle}
+                className="inline-flex h-12 items-center justify-center rounded-md bg-[#7b61ff] px-8 text-lg font-medium text-white shadow-lg transition-colors hover:bg-[#6247ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7b61ff] focus-visible:ring-offset-2"
+              >
+                Join a Circle
+              </Button>
+              <Button
+                onClick={handleStartCall}
+                className="inline-flex h-12 items-center justify-center rounded-md bg-[#4CAF50] px-8 text-lg font-medium text-white shadow-lg transition-colors hover:bg-[#45a049] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#4CAF50] focus-visible:ring-offset-2"
+              >
+                Start a Call
+              </Button>
+            </div>
+          </div>
+        </section>
+        <section className="min-h-[100dvh] flex items-center w-full py-12 md:py-24 lg:py-32 border-t bg-[#f5f5f5]">
+          <div className="container grid items-center justify-center gap-4 px-4 text-center md:px-6">
+            <div className="space-y-3">
+              <h2 className="text-3xl font-bold tracking-tighter md:text-4xl/tight text-[#333]">
+                Ready to Find Your Serenity?
+              </h2>
+              <p className="mx-auto max-w-[600px] text-[#666] md:text-xl/relaxed lg:text-base/relaxed xl:text-xl/relaxed">
+                Join our AI-powered support community and start experiencing the transformative power of Serenity Circles.
+              </p>
+            </div>
+            <div className="mx-auto w-full max-w-sm space-y-4">
+              <Button
+                onClick={handleJoinAnonymously}
+                className="w-full inline-flex h-12 items-center justify-center rounded-md bg-[#7b61ff] px-8 text-lg font-medium text-white shadow-lg transition-colors hover:bg-[#6247ff] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#7b61ff] focus-visible:ring-offset-2"
+              >
+                Join Anonymously
+              </Button>
+              <p className="text-xs text-[#666]">
+                By joining, you agree to our{" "}
+                <Link href="#" className="underline underline-offset-2 text-[#7b61ff]">
+                  Terms &amp; Conditions
+                </Link>
+              </p>
+            </div>
+          </div>
         </section>
       </main>
+      <footer className="flex flex-col gap-2 sm:flex-row py-6 w-full shrink-0 items-center px-4 md:px-6 border-t bg-[#fff] shadow-md">
+        <p className="text-xs text-[#666]">&copy; 2024 Serenity Circles. All rights reserved.</p>
+        <nav className="sm:ml-auto flex gap-4 sm:gap-6">
+          <Link href="#" className="text-xs hover:text-[#7b61ff] transition-colors">
+            Privacy Policy
+          </Link>
+          <Link href="#" className="text-xs hover:text-[#7b61ff] transition-colors">
+            Terms of Service
+          </Link>
+        </nav>
+      </footer>
     </div>
-  );
+  )
 }
 
-export default LandingPage;
+function SerenityIcon(props) {
+  return (
+    <svg
+      {...props}
+      xmlns="http://www.w3.org/2000/svg"
+      width="24"
+      height="24"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+    >
+      <path d="M14.5 2v17.5c0 1.4-1.1 2.5-2.5 2.5h0c-1.4 0-2.5-1.1-2.5-2.5V2" />
+      <path d="M8.5 2h7" />
+      <path d="M14.5 16h-5" />
+    </svg>
+  )
+}

@@ -2,100 +2,90 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { Bell, Clock, Heart, Sun, Users, Tag, Loader2 } from 'lucide-react';
+import { Bell, Heart, Sun, Users, Tag, Loader2, Sparkles } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardTitle } from "@/components/ui/card";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "@/components/ui/use-toast";
 import { createClient } from '@/utils/supabase/client';
+import { motion, AnimatePresence } from "framer-motion";
 
 interface Group {
   id: string;
   name: string;
   topic: string;
   description: string;
-  start_time: string;
-  duration_minutes: number;
-  days_of_week: number[];
-  is_active: boolean;
-  next_session_date: string | null;
-  created_at: string;
-  updated_at: string;
-  created_by: string;
-  max_participants: number;
-  min_participants: number;
   category: string;
   tags: string[];
-  active_participants: number;
-  always_joinable: boolean;
+  current_participants: number;
+  config_id: string;
 }
 
 interface GroupCardProps {
   group: Group;
-  isActive: boolean;
   onClick: () => void;
 }
 
 const GroupCard: React.FC<GroupCardProps> = ({ 
   group, 
-  isActive,
   onClick
 }) => {
   return (
-    <Card className="bg-white shadow-md hover:shadow-lg transition-shadow">
-      <CardContent className="p-6">
-        <div className="flex items-center justify-between mb-4">
-          <div className="flex items-center">
-            {group.category.toLowerCase().includes('mental') ? 
-              <Heart className="w-6 h-6 text-red-500" /> : 
-              <Sun className="w-6 h-6 text-yellow-500" />
-            }
-            <CardTitle className="text-xl ml-3">{group.name}</CardTitle>
-          </div>
-          <Badge variant={isActive ? "destructive" : "secondary"}>
-            {isActive ? "In Progress" : group.category}
-          </Badge>
-        </div>
-        <p className="text-sm font-medium text-gray-600 mb-2">{group.topic}</p>
-        <p className="text-sm text-gray-600 mb-4">{group.description}</p>
-        <div className="flex items-center space-x-2 text-gray-600 mb-4">
-          <Users className="w-4 h-4" />
-          <span className="text-sm">
-            {group.active_participants} / {group.max_participants} participants
-          </span>
-        </div>
-        <div className="flex flex-wrap gap-2 mb-4">
-          {group.tags.map((tag, index) => (
-            <Badge key={index} variant="outline" className="text-xs">
-              <Tag className="w-3 h-3 mr-1" />
-              {tag}
-            </Badge>
-          ))}
-        </div>
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2 text-gray-600">
-            <Clock className="w-4 h-4" />
-            <span className="text-sm font-medium">
-              {group.always_joinable 
-                ? 'Always available' 
-                : isActive 
-                  ? 'In progress' 
-                  : `Starts at ${new Date(group.next_session_date!).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`
+    <motion.div
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      exit={{ opacity: 0, y: -20 }}
+      transition={{ duration: 0.3 }}
+    >
+      <Card className="bg-white shadow-md hover:shadow-lg transition-all duration-300 border border-purple-200 rounded-lg overflow-hidden h-full">
+        <CardContent className="p-6 flex flex-col h-full">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center">
+              {group.category.toLowerCase().includes('mental') ? 
+                <Heart className="w-8 h-8 text-purple-500 mr-2" /> : 
+                <Sun className="w-8 h-8 text-amber-500 mr-2" />
               }
+              <CardTitle className="text-xl text-purple-800">{group.name}</CardTitle>
+            </div>
+            <Badge variant="secondary" className="bg-purple-100 text-purple-600">
+              {group.category}
+            </Badge>
+          </div>
+          <p className="text-sm font-medium text-purple-700 mb-2">{group.topic}</p>
+          <p className="text-sm text-gray-600 mb-4 flex-grow">{group.description}</p>
+          <div className="flex items-center space-x-2 text-amber-600 mb-4">
+            <Users className="w-4 h-4" />
+            <span className="text-sm">
+              {group.current_participants} / 5 participants
+            </span>
+          </div>
+          <div className="flex flex-wrap gap-2 mb-4">
+            {group.tags.map((tag, index) => (
+              <Badge key={index} variant="outline" className="text-xs bg-amber-50 text-amber-700 border-amber-300">
+                <Tag className="w-3 h-3 mr-1" />
+                {tag}
+              </Badge>
+            ))}
+          </div>
+          <div className="flex items-center space-x-2 text-purple-600 mb-4">
+            <Sparkles className="w-4 h-4" />
+            <span className="text-sm font-medium">
+              Always available
             </span>
           </div>
           <Button 
             variant="secondary" 
             size="sm" 
-            className="bg-amber-500 hover:bg-amber-600 text-white" 
+            className="bg-purple-600 hover:bg-purple-700 text-white transition-colors duration-300 w-full mt-auto" 
             onClick={onClick}
+            disabled={group.current_participants >= 5}
           >
-            Join Now
+            {group.current_participants >= 5 ? 'Circle Full' : 'Join Circle'}
           </Button>
-        </div>
-      </CardContent>
-    </Card>
+        </CardContent>
+      </Card>
+    </motion.div>
   );
 };
 
@@ -112,17 +102,22 @@ export default function SupportRoomsContent() {
       const { data, error } = await supabase
         .from('groups')
         .select(`
-          *,
-          active_participants:group_members(count)
+          id,
+          name,
+          topic,
+          description,
+          category,
+          tags,
+          config_id,
+          current_participants:group_members(count)
         `)
-        .eq('is_active', true)
-        .order('next_session_date', { ascending: true });
+        .order('name', { ascending: true });
 
       if (error) throw error;
 
       const groupsWithParticipants = data.map(group => ({
         ...group,
-        active_participants: group.active_participants[0].count
+        current_participants: group.current_participants[0].count
       }));
 
       setGroups(groupsWithParticipants);
@@ -130,7 +125,7 @@ export default function SupportRoomsContent() {
       console.error('Error fetching groups:', error);
       toast({
         title: "Error",
-        description: "Failed to fetch wellness circles. Please try again later.",
+        description: "Failed to fetch serenity circles. Please try again later.",
         variant: "destructive",
       });
     } finally {
@@ -175,50 +170,35 @@ export default function SupportRoomsContent() {
   }, [supabase]);
 
   const handleJoinGroup = useCallback((group: Group) => {
-    const now = new Date();
-    let startTime: number;
-
-    if (group.always_joinable) {
-      // For AlwaysRunning groups, set startTime to now
-      startTime = now.getTime();
-    } else if (group.next_session_date) {
-      // For scheduled groups, use the next_session_date
-      startTime = new Date(group.next_session_date).getTime();
-    } else {
-      // Fallback to current time if no next_session_date is available
-      startTime = now.getTime();
+    if (group.current_participants >= 5) {
+      toast({
+        title: "Circle Full",
+        description: "This circle is currently full. Please try again later or join another circle.",
+        variant: "destructive",
+      });
+      return;
     }
 
-    router.push(`/group/${group.id}?startTime=${startTime}`);
+    const startTime = new Date().getTime();
+    router.push(`/group/${group.id}?startTime=${startTime}&configId=${group.config_id}`);
   }, [router]);
-
-  const isGroupActive = useCallback((group: Group) => {
-    if (group.always_joinable) return true;
-    const now = new Date();
-    const startTime = new Date(group.next_session_date!);
-    const endTime = new Date(startTime.getTime() + group.duration_minutes * 60000);
-    return now >= startTime && now < endTime;
-  }, []);
 
   if (loading) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <Loader2 className="w-10 h-10 animate-spin" />
+      <div className="flex justify-center items-center h-screen bg-gradient-to-br from-purple-50 to-amber-50">
+        <Loader2 className="w-10 h-10 animate-spin text-purple-600" />
       </div>
     );
   }
 
-  const activeGroups = groups.filter(group => isGroupActive(group) || group.always_joinable);
-  const upcomingGroups = groups.filter(group => !isGroupActive(group) && !group.always_joinable);
-
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-amber-50 to-orange-100 text-gray-800">
+    <div className="min-h-screen w-full bg-gradient-to-br from-purple-50 to-amber-50 text-gray-800">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <header className="flex justify-between items-center mb-12">
-          <h1 className="text-4xl font-bold text-amber-700">Wellness Circles</h1>
+          <h1 className="text-4xl font-bold text-purple-800">Serenity Circles</h1>
           <div className="flex items-center space-x-6">
-            <Bell className="text-gray-600 hover:text-amber-700 cursor-pointer w-6 h-6" />
-            <Avatar className="h-12 w-12 ring-2 ring-amber-500">
+            <Bell className="text-purple-600 hover:text-amber-500 cursor-pointer w-6 h-6 transition-colors duration-300" />
+            <Avatar className="h-12 w-12 ring-2 ring-purple-300">
               <AvatarImage src={user?.user_metadata?.avatar_url || "/placeholder.svg?height=48&width=48"} alt="User" />
               <AvatarFallback>{user?.email?.charAt(0).toUpperCase() || 'U'}</AvatarFallback>
             </Avatar>
@@ -226,43 +206,36 @@ export default function SupportRoomsContent() {
         </header>
 
         <main>
-          <h2 className="text-2xl font-semibold mb-6 text-amber-700">Currently Available</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
-            {activeGroups.map((group) => (
-              <GroupCard
-                key={group.id}
-                group={group}
-                isActive={true}
-                onClick={() => handleJoinGroup(group)}
-              />
-            ))}
-            {activeGroups.length === 0 && (
-              <p className="text-gray-600 col-span-full">No circles are currently available.</p>
-            )}
-          </div>
-
-          <h2 className="text-2xl font-semibold mb-6 text-amber-700">Upcoming Circles</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {upcomingGroups.map((group) => (
-              <GroupCard
-                key={group.id}
-                group={group}
-                isActive={false}
-                onClick={() => handleJoinGroup(group)}
-              />
-            ))}
-            {upcomingGroups.length === 0 && (
-              <p className="text-gray-600 col-span-full">No upcoming circles scheduled.</p>
-            )}
-          </div>
+          <h2 className="text-2xl font-semibold mb-6 text-purple-700">Available Circles</h2>
+          <AnimatePresence>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 mb-12">
+              {groups.map((group) => (
+                <GroupCard
+                  key={group.id}
+                  group={group}
+                  onClick={() => handleJoinGroup(group)}
+                />
+              ))}
+              {groups.length === 0 && (
+                <motion.p
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="text-purple-600 col-span-full text-center text-lg"
+                >
+                  No circles are currently available. Check back soon!
+                </motion.p>
+              )}
+            </div>
+          </AnimatePresence>
         </main>
 
         <footer className="mt-16 text-center">
           <Button 
             onClick={() => router.push('/pricing')} 
-            className="bg-amber-500 hover:bg-amber-600 text-white text-lg py-3 px-6"
+            className="bg-amber-500 hover:bg-amber-600 text-white text-lg py-3 px-6 rounded-md transition-colors duration-300"
           >
-            Start a Room
+            Start Your Own Circle
           </Button>
         </footer>
       </div>
