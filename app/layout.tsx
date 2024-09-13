@@ -6,8 +6,8 @@ import { Toaster } from "@/components/ui/toaster"
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Daily Dose - Your Mental Health Companion',
-  description: 'A supportive space for your mental wellness journey',
+  title: 'Serenity Circles - Find Peace With Serenity',
+  description: 'A supportive space for your Holistic Health journey',
 }
 
 export default function RootLayout({
