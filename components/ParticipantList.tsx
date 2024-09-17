@@ -9,8 +9,7 @@ import MessageList from '@/components/MessageList'
 import AudioControls from '@/components/AudioControls'
 import ParticipantList from '@/components/ParticipantList'
 import { useTurnState } from '@/hooks/useTurnState'
-import { useAudioStream } from '@/hooks/useAudioStream'
-import { initializeAIFacilitator } from '@/utils/agora'
+import { useWebSocketAudio } from '@/hooks/useWebSocketAudio'
 
 interface ImmersiveGroupChatProps {
   groupId: string
@@ -22,7 +21,6 @@ export default function ImmersiveGroupChat({ groupId, userId, username }: Immers
   const [messages, setMessages] = useState([])
   const [chatStatus, setChatStatus] = useState('connecting')
   const [chatMetadata, setChatMetadata] = useState(null)
-  const [aiFacilitator, setAiFacilitator] = useState(null)
   const { 
     isUserTurn, 
     isHandRaised, 
@@ -38,8 +36,9 @@ export default function ImmersiveGroupChat({ groupId, userId, username }: Immers
     isAudioEnabled, 
     toggleAudio, 
     startAudioStream, 
-    stopAudioStream 
-  } = useAudioStream(groupId, userId)
+    stopAudioStream,
+    sendAudioChunk
+  } = useWebSocketAudio(groupId, userId)
   const router = useRouter()
   const { toast } = useToast()
   const supabase = createClient()
@@ -72,11 +71,6 @@ export default function ImmersiveGroupChat({ groupId, userId, username }: Immers
       setChatMetadata(data.chatGroupId ? { chat_group_id: data.chatGroupId } : null)
       
       refreshTurnState()
-
-      if (data.aiFacilitator) {
-        const aiInstance = await initializeAIFacilitator(groupId, data.aiFacilitator.ai_facilitator_id)
-        setAiFacilitator(aiInstance)
-      }
     } catch (error) {
       console.error('Error initializing chat:', error)
       toast({
@@ -89,13 +83,7 @@ export default function ImmersiveGroupChat({ groupId, userId, username }: Immers
 
   useEffect(() => {
     initializeChat()
-
-    return () => {
-      if (aiFacilitator) {
-        aiFacilitator.leaveChannel()
-      }
-    }
-  }, [initializeChat, aiFacilitator])
+  }, [initializeChat])
 
   useEffect(() => {
     const fetchMessages = async () => {
@@ -161,7 +149,6 @@ export default function ImmersiveGroupChat({ groupId, userId, username }: Immers
           stopSpeaking={handleStopSpeaking}
           isOnStage={isOnStage}
           isFacilitator={isFacilitator}
-          aiFacilitator={aiFacilitator}
         />
         <div className="mt-4 flex justify-between">
           {!isOnStage && !isFacilitator && (

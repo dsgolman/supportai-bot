@@ -109,18 +109,13 @@ export default function SupportRoomsContent() {
           category,
           tags,
           config_id,
-          current_participants:group_members(count)
+          current_participants
         `)
         .order('name', { ascending: true });
-
+  
       if (error) throw error;
-
-      const groupsWithParticipants = data.map(group => ({
-        ...group,
-        current_participants: group.current_participants[0].count
-      }));
-
-      setGroups(groupsWithParticipants);
+  
+      setGroups(data);
     } catch (error) {
       console.error('Error fetching groups:', error);
       toast({
@@ -180,7 +175,7 @@ export default function SupportRoomsContent() {
     }
 
     const startTime = new Date().getTime();
-    router.push(`/group/${group.id}?startTime=${startTime}&configId=${group.config_id}`);
+    router.push(`/support/${group.id}?startTime=${startTime}&configId=${group.config_id}`);
   }, [router]);
 
   if (loading) {

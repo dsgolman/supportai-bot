@@ -1,83 +1,74 @@
-import React from 'react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
+// components/NameDialog.tsx
+import React, { useState, useEffect } from 'react'
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import {
   Dialog,
   DialogContent,
   DialogDescription,
   DialogHeader,
   DialogTitle,
-} from "@/components/ui/dialog";
-import HCaptcha from '@hcaptcha/react-hcaptcha';
-import { createClient } from '@/utils/supabase/client';
-import { toast } from "@/components/ui/use-toast";
+} from "@/components/ui/dialog"
+import { createClient } from '@/utils/supabase/client'
+import { useToast } from "@/components/ui/use-toast"
 
 interface NameDialogProps {
-  isOpen: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: (userId: string, firstName: string, lastInitial: string) => void;
-  groupId: string;
+  isOpen: boolean
+  onOpenChange: (open: boolean) => void
+  onSubmit: (userId: string, firstName: string, lastInitial: string) => void
+  groupId: string
 }
 
 export function NameDialog({ isOpen, onOpenChange, onSubmit, groupId }: NameDialogProps) {
-  const [firstName, setFirstName] = React.useState<string>('');
-  const [lastInitial, setLastInitial] = React.useState<string>('');
-  const [captchaToken, setCaptchaToken] = React.useState<string | null>(null);
-  const captcha = React.useRef<HCaptcha>(null);
-  const supabase = createClient();
+  const [firstName, setFirstName] = useState<string>('')
+  const [lastInitial, setLastInitial] = useState<string>('')
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const supabase = createClient()
+  const { toast } = useToast()
+
+  useEffect(() => {
+    console.log('NameDialog isOpen:', isOpen)
+  }, [isOpen])
 
   const handleSubmit = async () => {
-    if (!firstName || !lastInitial || !captchaToken) {
+    if (!firstName || !lastInitial) {
       toast({
         title: "Error",
-        description: "Please enter your first name, last initial, and complete the captcha.",
+        description: "Please enter your first name and last initial.",
         variant: "destructive",
-      });
-      return;
+      })
+      return
     }
 
+    setIsSubmitting(true)
+
     try {
-      // Use anonymous auth
-      const { data, error } = await supabase.auth.signUp({
-        email: `${Date.now()}@anonymous.com`,
-        password: Math.random().toString(36).slice(-8),
-      });
+      const { data, error } = await supabase.auth.signInAnonymously()
       
       if (error) {
-        throw error;
+        throw error
       }
 
       if (data.user) {
-        const { error: insertError } = await supabase
-          .from('group_members')
-          .insert({
-            user_id: data.user.id,
-            group_id: groupId,
-            full_name: `${firstName} ${lastInitial}.`
-          });
-
-        if (insertError) {
-          throw insertError;
-        }
-
-        onSubmit(data.user.id, firstName, lastInitial);
-        onOpenChange(false);
+        onSubmit(data.user.id, firstName, lastInitial)
+        toast({
+          title: "Success",
+          description: "You have successfully joined the group.",
+        })
       }
     } catch (error) {
-      console.error("Error joining group:", error);
+      console.error("Error joining group:", error)
       toast({
         title: "Error",
         description: "Failed to join the group. Please try again.",
         variant: "destructive",
-      });
+      })
     } finally {
-      if (captcha.current) {
-        captcha.current.resetCaptcha();
-      }
-      setCaptchaToken(null);
+      setIsSubmitting(false)
+      onOpenChange(false)
     }
-  };
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -90,7 +81,7 @@ export function NameDialog({ isOpen, onOpenChange, onSubmit, groupId }: NameDial
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label className="text-right">
+            <Label htmlFor="firstName" className="text-right">
               First Name
             </Label>
             <Input
@@ -101,29 +92,25 @@ export function NameDialog({ isOpen, onOpenChange, onSubmit, groupId }: NameDial
             />
           </div>
           <div className="grid grid-cols-4 items-center gap-4">
-            <Label className="text-right">
+            <Label htmlFor="lastInitial" className="text-right">
               Last Initial
             </Label>
             <Input
               id="lastInitial"
               value={lastInitial}
-              onChange={(e) => setLastInitial(e.target.value)}
+              onChange={(e) => setLastInitial(e.target.value.toUpperCase())}
               className="col-span-3"
               maxLength={1}
             />
           </div>
-          <div className="flex justify-center">
-            <HCaptcha
-              ref={captcha}
-              sitekey="your-sitekey"
-              onVerify={(token) => {
-                setCaptchaToken(token);
-              }}
-            />
-          </div>
         </div>
-        <Button onClick={handleSubmit} disabled={!captchaToken}>Join Circle</Button>
+        <Button 
+          onClick={handleSubmit} 
+          disabled={isSubmitting || !firstName || !lastInitial}
+        >
+          {isSubmitting ? 'Joining...' : 'Join Circle'}
+        </Button>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

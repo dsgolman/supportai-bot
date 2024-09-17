@@ -10,7 +10,7 @@ import { Card, CardHeader, CardTitle, CardDescription, CardContent, CardFooter }
 import Session from "./Session";
 import { useAssistant } from "@/components/assistantContext";
 import { Alert } from "./ui/alert";
-import { GroupChat } from "@/components/GroupChat";
+import { GroupChat } from "@/components/ImmersiveGroupChat";
 import { createClient } from '@/utils/supabase/client';
 
 const status_text = {
