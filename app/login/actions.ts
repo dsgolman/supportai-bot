@@ -64,7 +64,7 @@ export async function signup(formData: FormData) {
     .single();
 
   if (profileError || !profile.is_onboarded) {
-    redirect('/onboarding');
+    redirect('/support');
   }
 
   // Redirect to the "Check Your Email" page

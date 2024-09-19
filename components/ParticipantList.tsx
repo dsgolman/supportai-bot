@@ -1,172 +1,80 @@
-'use client'
+import React from 'react'
+import { ScrollArea } from "@/components/ui/scroll-area"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Badge } from "@/components/ui/badge"
+import { Hand, Mic, MicOff } from "lucide-react"
 
-import React, { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
-import { createClient } from '@/utils/supabase/client'
-import { Button } from "@/components/ui/button"
-import { useToast } from "@/components/ui/use-toast"
-import MessageList from '@/components/MessageList'
-import AudioControls from '@/components/AudioControls'
-import ParticipantList from '@/components/ParticipantList'
-import { useTurnState } from '@/hooks/useTurnState'
-import { useWebSocketAudio } from '@/hooks/useWebSocketAudio'
-
-interface ImmersiveGroupChatProps {
-  groupId: string
-  userId: string
-  username: string
+interface Participant {
+  id: string
+  display_name: string
+  isOnStage: boolean
+  handRaised: boolean
+  isSpeaking: boolean
+  avatarUrl?: string
 }
 
-export default function ImmersiveGroupChat({ groupId, userId, username }: ImmersiveGroupChatProps) {
-  const [messages, setMessages] = useState([])
-  const [chatStatus, setChatStatus] = useState('connecting')
-  const [chatMetadata, setChatMetadata] = useState(null)
-  const { 
-    isUserTurn, 
-    isHandRaised, 
-    isFacilitator, 
-    isOnStage,
-    queue, 
-    raiseHand, 
-    lowerHand, 
-    endTurn,
-    refreshTurnState
-  } = useTurnState(groupId, userId)
-  const { 
-    isAudioEnabled, 
-    toggleAudio, 
-    startAudioStream, 
-    stopAudioStream,
-    sendAudioChunk
-  } = useWebSocketAudio(groupId, userId)
-  const router = useRouter()
-  const { toast } = useToast()
-  const supabase = createClient()
+interface ParticipantListProps {
+  participants: Participant[]
+}
 
-  const initializeChat = useCallback(async () => {
-    if (!userId) return
-
-    try {
-      const resumeChatGroupId = chatMetadata?.chat_group_id
-
-      const response = await fetch('/api/chat', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          groupId,
-          resume_chat_group_id: resumeChatGroupId
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to initialize chat')
-      }
-
-      const data = await response.json()
-      console.log('Chat initialization response:', data)
-
-      setChatStatus('connected')
-      setChatMetadata(data.chatGroupId ? { chat_group_id: data.chatGroupId } : null)
-      
-      refreshTurnState()
-    } catch (error) {
-      console.error('Error initializing chat:', error)
-      toast({
-        title: "Error",
-        description: "Failed to initialize chat. Please try again.",
-        variant: "destructive",
-      })
-    }
-  }, [userId, groupId, chatMetadata, setChatStatus, setChatMetadata, toast, refreshTurnState])
-
-  useEffect(() => {
-    initializeChat()
-  }, [initializeChat])
-
-  useEffect(() => {
-    const fetchMessages = async () => {
-      const { data, error } = await supabase
-        .from('messages')
-        .select('*')
-        .eq('group_id', groupId)
-        .order('created_at', { ascending: true })
-
-      if (error) {
-        console.error('Error fetching messages:', error)
-        return
-      }
-
-      setMessages(data)
-    }
-
-    fetchMessages()
-
-    const messagesChannel = supabase
-      .channel(`messages:${groupId}`)
-      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages', filter: `group_id=eq.${groupId}` }, 
-        payload => {
-          setMessages(currentMessages => [...currentMessages, payload.new])
-        }
-      )
-      .subscribe()
-
-    return () => {
-      messagesChannel.unsubscribe()
-    }
-  }, [groupId, supabase])
-
-  const handleStartSpeaking = useCallback(async () => {
-    if (isOnStage) {
-      await startAudioStream()
-    } else {
-      toast({
-        title: "Error",
-        description: "You need to be on stage to speak.",
-        variant: "destructive",
-      })
-    }
-  }, [isOnStage, startAudioStream, toast])
-
-  const handleStopSpeaking = useCallback(async () => {
-    await stopAudioStream()
-    if (isUserTurn) {
-      endTurn()
-    }
-  }, [isUserTurn, endTurn, stopAudioStream])
+export default function ParticipantList({ participants = [] }: ParticipantListProps) {
+  const onStageParticipants = participants.filter(p => p.isOnStage)
+  const offStageParticipants = participants.filter(p => !p.isOnStage)
 
   return (
-    <div className="flex flex-col h-screen">
-      <div className="flex-grow overflow-y-auto">
-        <MessageList messages={messages} currentUserId={userId} />
+    <div className="w-full max-w-sm border rounded-lg shadow-sm">
+      <div className="p-4 border-b">
+        <h2 className="text-lg font-semibold">Participants ({participants.length})</h2>
       </div>
-      <div className="p-4 bg-gray-100">
-        <AudioControls
-          isAudioEnabled={isAudioEnabled}
-          toggleAudio={toggleAudio}
-          startSpeaking={handleStartSpeaking}
-          stopSpeaking={handleStopSpeaking}
-          isOnStage={isOnStage}
-          isFacilitator={isFacilitator}
-        />
-        <div className="mt-4 flex justify-between">
-          {!isOnStage && !isFacilitator && (
-            <Button 
-              onClick={isHandRaised ? lowerHand : raiseHand}
-              variant={isHandRaised ? "secondary" : "outline"}
-            >
-              {isHandRaised ? 'Lower Hand' : 'Raise Hand'}
-            </Button>
+      <ScrollArea className="h-[400px]">
+        {onStageParticipants.length > 0 && (
+          <div className="p-4">
+            <h3 className="text-sm font-medium text-gray-500 mb-2">On Stage</h3>
+            {onStageParticipants.map(participant => (
+              <ParticipantItem key={participant.id} participant={participant} />
+            ))}
+          </div>
+        )}
+        {offStageParticipants.length > 0 && (
+          <div className="p-4">
+            <h3 className="text-sm font-medium text-gray-500 mb-2">Off Stage</h3>
+            {offStageParticipants.map(participant => (
+              <ParticipantItem key={participant.id} participant={participant} />
+            ))}
+          </div>
+        )}
+      </ScrollArea>
+    </div>
+  )
+}
+
+function ParticipantItem({ participant }: { participant: Participant }) {
+  return (
+    <div className="flex items-center space-x-4 mb-4">
+      <Avatar>
+        <AvatarImage src={participant.avatarUrl} alt={participant.display_name} />
+        <AvatarFallback>{participant.display_name.charAt(0)}</AvatarFallback>
+      </Avatar>
+      <div className="flex-1 min-w-0">
+        <p className="text-sm font-medium text-gray-900 truncate">
+          {participant.display_name}
+        </p>
+        <div className="flex items-center space-x-2">
+          {participant.isOnStage && (
+            <Badge variant="secondary" className="text-xs">
+              On Stage
+            </Badge>
           )}
-          {isOnStage && !isFacilitator && (
-            <Button onClick={endTurn} variant="secondary">
-              Leave Stage
-            </Button>
+          {participant.handRaised && (
+            <Hand className="h-4 w-4 text-blue-500" />
+          )}
+          {participant.isSpeaking ? (
+            <Mic className="h-4 w-4 text-green-500" />
+          ) : (
+            <MicOff className="h-4 w-4 text-gray-400" />
           )}
         </div>
       </div>
-      <ParticipantList groupId={groupId} currentUserId={userId} />
     </div>
   )
 }

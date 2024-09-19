@@ -1,16 +1,31 @@
-// hooks/useUserState.ts
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { createClient } from '@/utils/supabase/client'
 import { useToast } from "@/components/ui/use-toast"
+import { useRouter } from 'next/navigation'
+import { User } from '@supabase/supabase-js'
+
+interface GroupParticipant {
+  id: string;
+  group_id: string;
+  user_id: string;
+  display_name: string;
+  is_facilitator: boolean;
+  is_active: boolean;
+  is_on_stage: boolean;
+  hand_raised: boolean;
+  hand_raised_at: string | null;
+  last_turn_ended_at: string | null;
+}
 
 export function useUserState(groupId: string) {
-  const [user, setUser] = useState<any>(null)
+  const [user, setUser] = useState<User | null>(null)
+  const [participant, setParticipant] = useState<GroupParticipant | null>(null)
   const [isNameModalOpen, setIsNameModalOpen] = useState(false)
-  const [isFacilitator, setIsFacilitator] = useState(false)
   const supabase = createClient()
   const isInitialMount = useRef(true)
   const isFetchingUserData = useRef(false)
   const { toast } = useToast()
+  const router = useRouter()
 
   const fetchUserData = useCallback(async () => {
     if (isFetchingUserData.current) return
@@ -18,26 +33,33 @@ export function useUserState(groupId: string) {
 
     try {
       console.log("Checking user and fetching profile...")
-      const { data: { session } } = await supabase.auth.getSession()
-      if (session?.user) {
-        console.log("Session found, fetching group member data")
-        const { data: groupMemberData, error: groupMemberError } = await supabase
-          .from('group_members')
-          .select('*, profiles:user_id(full_name, username)')
-          .eq('user_id', session.user.id)
+      const { data: { user }, error: sessionError } = await supabase.auth.getUser()
+      if (sessionError) throw sessionError
+
+      if (user) {
+        console.log("Session found, fetching group participant data")
+        const { data: participantData, error: participantError } = await supabase
+          .from('group_participants')
+          .select('*')
+          .eq('user_id', user.id)
           .eq('group_id', groupId)
           .single()
 
-        if (groupMemberError) {
-          console.log("User not in group, opening NameDialog")
-          setIsNameModalOpen(true)
-        } else if (groupMemberData) {
-          setUser({ ...session.user, ...groupMemberData, ...groupMemberData.profiles })
-          setIsFacilitator(groupMemberData.role === 'facilitator')
+        if (participantError) {
+          if (participantError.code === 'PGRST116') {
+            console.log("User not in group, opening NameDialog")
+            setUser(user)
+            setIsNameModalOpen(true)
+          } else {
+            throw participantError
+          }
+        } else if (participantData) {
+          setUser(user)
+          setParticipant(participantData)
         }
       } else {
-        console.log("No session found, opening NameDialog")
-        setIsNameModalOpen(true)
+        console.log("No session found, redirecting to login")
+        void router.push('/login')
       }
     } catch (error) {
       console.error('Error fetching user data:', error)
@@ -49,41 +71,37 @@ export function useUserState(groupId: string) {
     } finally {
       isFetchingUserData.current = false
     }
-  }, [supabase, groupId, toast])
+  }, [supabase, groupId, toast, router])
 
   useEffect(() => {
     if (isInitialMount.current) {
       isInitialMount.current = false
-      fetchUserData()
+      void fetchUserData()
     }
   }, [fetchUserData])
 
-  useEffect(() => {
-    console.log('isNameModalOpen changed in useUserState:', isNameModalOpen)
-  }, [isNameModalOpen])
-
-  const handleNameSubmit = useCallback(async (userId: string, firstName: string, lastInitial: string) => {
+  const handleNameSubmit = useCallback(async (displayName: string) => {
     try {
-      const fullName = `${firstName} ${lastInitial}.`
-      
-      // Update or insert the user's profile
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .upsert({ id: userId, full_name: fullName, username: fullName.toLowerCase().replace(' ', '') })
+      const { data: { user: currentUser } } = await supabase.auth.getUser()
+      if (!currentUser) {
+        throw new Error('No authenticated user')
+      }
 
-      if (profileError) throw profileError
-
-      // Insert the user into the group_members table
-      const { data, error: groupMemberError } = await supabase
-        .from('group_members')
-        .insert({ user_id: userId, group_id: groupId, role: 'member' })
-        .select('*')
+      const { data, error: participantError } = await supabase
+        .from('group_participants')
+        .upsert({ 
+          user_id: currentUser.id, 
+          group_id: groupId, 
+          display_name: displayName,
+          is_active: true,
+        })
+        .select()
         .single()
 
-      if (groupMemberError) throw groupMemberError
+      if (participantError) throw participantError
 
-      setUser({ id: userId, ...data, full_name: fullName })
-      setIsFacilitator(data.role === 'facilitator')
+      setUser(currentUser)
+      setParticipant(data)
       setIsNameModalOpen(false)
 
       toast({
@@ -102,8 +120,8 @@ export function useUserState(groupId: string) {
 
   return {
     user,
+    participant,
     isNameModalOpen,
-    isFacilitator,
     setIsNameModalOpen,
     handleNameSubmit,
     fetchUserData,

@@ -1,203 +1,190 @@
-// components/ImmersiveGroupChat.tsx
-import React, { useState, useEffect, useCallback } from 'react'
-import { useUserState } from '@/hooks/useUserState'
-import { useTurnState } from '@/hooks/useTurnState'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import { useAgoraAudio } from '@/hooks/useAgoraAudio'
+import { useWebSocketAudio } from '@/hooks/useWebSocketAudio'
+import { useUserState } from '@/hooks/useUserState'
 import { Button } from '@/components/ui/button'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
-import { Mic, MicOff, Hand } from 'lucide-react'
-import { createClient } from '@/utils/supabase/client'
-import { NameDialog } from '@/components/NameDialog'
-import { useToast } from "@/components/ui/use-toast"
-
-interface Participant {
-  id: string
-  name: string
-  avatar_url: string
-}
+import { Input } from '@/components/ui/input'
+import { useToast } from '@/components/ui/use-toast'
+import AudioCapture from '@/components/AudioCapture'
+import ParticipantList from '@/components/ParticipantList'
+import { Alert, AlertDescription } from '@/components/ui/alert'
+import { IAgoraRTCRemoteUser } from 'agora-rtc-sdk-ng'
 
 interface ImmersiveGroupChatProps {
   groupId: string
+  userId: string
+  configId: string
 }
 
-export default function ImmersiveGroupChat({ groupId }: ImmersiveGroupChatProps) {
+interface Participant {
+  id: string
+  display_name: string
+  isOnStage: boolean
+  handRaised: boolean
+  isSpeaking: boolean
+}
+
+const ImmersiveGroupChat: React.FC<ImmersiveGroupChatProps> = ({ groupId, userId, configId }) => {
+  const { toast } = useToast()
+  const [message, setMessage] = useState('')
+  const [isTurnActive, setIsTurnActive] = useState(false)
+  const [isHandRaised, setIsHandRaised] = useState(false)
+
   const {
     user,
+    participant,
     isNameModalOpen,
-    isFacilitator,
     setIsNameModalOpen,
     handleNameSubmit,
-    fetchUserData
+    fetchUserData,
   } = useUserState(groupId)
 
-  const [participants, setParticipants] = useState<Participant[]>([])
-  const [error, setError] = useState<string | null>(null)
-  const supabase = createClient()
-  const { toast } = useToast()
-
   const {
-    isUserTurn,
-    isHandRaised,
-    handRaisedAt,
-    isOnStage,
-    queue,
-    raiseHand,
-    lowerHand,
-    endTurn,
-    refreshTurnState
-  } = useTurnState(groupId, user?.id || '')
-
-  const {
-    joinChannel,
-    leaveChannel,
     toggleAudio,
     isAudioEnabled,
-    error: agoraError
-  } = useAgoraAudio(groupId)
+    remoteUsers,
+    error: agoraError,
+    isJoined,
+  } = useAgoraAudio(groupId, userId, participant?.is_on_stage || false)
+
+  const {
+    initializeChat,
+    sendUserInput,
+    closeChat,
+    chatStatus,
+    chatGroupId,
+    error: websocketError,
+    isAIAudioEnabled,
+    toggleAIAudio,
+    aiAudioStream,
+    isChatStarted,
+    startChat,
+    assistantMessage,
+    audioOutput,
+  } = useWebSocketAudio(groupId, userId)
+
+  const mappedParticipants = useMemo(() => {
+    const localParticipant: Participant = {
+      id: userId,
+      display_name: user?.display_name || `User ${userId}`,
+      isOnStage: participant?.is_on_stage || false,
+      handRaised: isHandRaised,
+      isSpeaking: isAudioEnabled,
+    };
+
+    const remoteParticipants = remoteUsers.map((user: IAgoraRTCRemoteUser) => ({
+      id: user.uid.toString(),
+      display_name: `User ${user.uid}`,
+      isOnStage: true,
+      handRaised: false, // We'll need to implement a way to track this for remote users
+      isSpeaking: user.hasAudio,
+    }));
+
+    return [localParticipant, ...remoteParticipants];
+  }, [remoteUsers, userId, user, participant, isHandRaised, isAudioEnabled]);
 
   useEffect(() => {
     if (agoraError) {
-      setError(`Agora error: ${agoraError}`)
-    } else {
-      setError(null)
+      toast({
+        title: "Agora Error",
+        description: agoraError,
+        variant: "destructive",
+      })
     }
-  }, [agoraError])
-
-  const fetchParticipants = useCallback(async () => {
-    const { data, error } = await supabase
-      .from('group_members')
-      .select(`
-        user_id,
-        profiles:user_id (full_name, username, avatar_url)
-      `)
-      .eq('group_id', groupId)
-
-    if (error) {
-      console.error('Error fetching participants:', error)
-      return
+    if (websocketError) {
+      toast({
+        title: "WebSocket Error",
+        description: websocketError,
+        variant: "destructive",
+      })
     }
-
-    const formattedParticipants = data.map(member => ({
-      id: member.user_id,
-      name: member.profiles?.full_name || member.profiles?.username || 'Unknown User',
-      avatar_url: member.profiles?.avatar_url || `/placeholder.svg?height=40&width=40`
-    }))
-
-    setParticipants(formattedParticipants)
-  }, [groupId, supabase])
+  }, [agoraError, websocketError, toast])
 
   useEffect(() => {
-    fetchParticipants()
-    const intervalId = setInterval(fetchParticipants, 5000) // Refresh participants every 5 seconds
-    return () => clearInterval(intervalId)
-  }, [fetchParticipants])
+    // Initialize chat when component mounts
+    initializeChat();
+  }, [initializeChat]);
 
-  const handleJoinChat = async () => {
-    try {
-      await joinChannel()
-      refreshTurnState()
-      toast({
-        title: "Joined Chat",
-        description: "You have successfully joined the chat.",
-      })
-    } catch (err) {
-      console.error('Error joining chat:', err)
-      setError('Failed to join chat. Please try again.')
+  const handleSendMessage = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (message.trim()) {
+      await sendUserInput(message)
+      setMessage('')
     }
-  }
+  }, [message, sendUserInput])
 
-  const handleLeaveChat = async () => {
-    try {
-      await leaveChannel()
-      endTurn()
-      toast({
-        title: "Left Chat",
-        description: "You have left the chat.",
-      })
-    } catch (err) {
-      console.error('Error leaving chat:', err)
-      setError('Failed to leave chat. Please try again.')
-    }
-  }
+  const handleEndTurn = useCallback(() => {
+    setIsTurnActive(false)
+    // Additional logic for ending the turn
+  }, [])
 
-  const handleRaiseHand = async () => {
-    if (isHandRaised) {
-      await lowerHand()
-      toast({
-        title: "Hand Lowered",
-        description: "You have lowered your hand.",
-      })
-    } else {
-      await raiseHand()
-      toast({
-        title: "Hand Raised",
-        description: "You have raised your hand.",
-      })
-    }
-  }
+  const handleRaiseHand = useCallback(() => {
+    setIsHandRaised(prev => !prev)
+    // TODO: Implement logic to notify other participants about the hand raise
+  }, [])
 
   return (
-    <>
-      <Card className="w-full max-w-4xl mx-auto">
-        <CardHeader>
-          <CardTitle>Immersive Group Chat</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {error && <div className="text-red-500 mb-4">{error}</div>}
-          <div className="flex flex-wrap gap-4 mb-4">
-            {participants.map((participant) => (
-              <div key={participant.id} className="flex flex-col items-center">
-                <Avatar>
-                  <AvatarImage src={participant.avatar_url} alt={participant.name} />
-                  <AvatarFallback>{participant.name.charAt(0)}</AvatarFallback>
-                </Avatar>
-                <span className="text-sm mt-1">{participant.name}</span>
-                {queue.find(q => q.userId === participant.id) && (
-                  <Hand className="w-4 h-4 text-blue-500 mt-1" />
-                )}
-                {isOnStage && participant.id === user?.id && (
-                  <Mic className="w-4 h-4 text-green-500 mt-1" />
-                )}
+    <div className="flex flex-col h-screen">
+      <header className="bg-primary text-primary-foreground p-4">
+        <h1 className="text-2xl font-bold">Immersive Group Chat</h1>
+        <p className="text-sm">Group ID: {groupId} | Config ID: {configId}</p>
+      </header>
+      <main className="flex-grow flex">
+        <div className="w-3/4 p-4 flex flex-col">
+          <div className="flex-grow bg-secondary p-4 rounded-lg mb-4 overflow-y-auto">
+            {assistantMessage && (
+              <div className="bg-primary/10 p-2 rounded mb-2">
+                <p className="font-semibold">Assistant:</p>
+                <p>{assistantMessage}</p>
               </div>
-            ))}
-          </div>
-          <div className="flex gap-2 mb-4">
-            <Button onClick={isAudioEnabled ? handleLeaveChat : handleJoinChat}>
-              {isAudioEnabled ? 'Leave Chat' : 'Join Chat'}
-            </Button>
-            <Button onClick={toggleAudio} disabled={!isAudioEnabled}>
-              {isAudioEnabled ? <Mic /> : <MicOff />}
-              {isAudioEnabled ? 'Mute' : 'Unmute'}
-            </Button>
-            <Button onClick={handleRaiseHand}>
-              {isHandRaised ? 'Lower Hand' : 'Raise Hand'}
-            </Button>
-            {isOnStage && (
-              <Button onClick={endTurn}>End Turn</Button>
             )}
           </div>
-          {isFacilitator && (
-            <div className="mt-4">
-              <h3 className="text-lg font-semibold mb-2">Speaker Queue</h3>
-              <ul>
-                {queue.map((item) => (
-                  <li key={item.userId} className="mb-1">
-                    {participants.find(p => p.id === item.userId)?.name || 'Unknown User'} - Raised at: {new Date(item.handRaisedAt).toLocaleTimeString()}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      <NameDialog
-        isOpen={isNameModalOpen}
-        onOpenChange={setIsNameModalOpen}
-        onSubmit={handleNameSubmit}
-        groupId={groupId}
-      />
-    </>
+          <form onSubmit={handleSendMessage} className="flex gap-2">
+            <Input
+              type="text"
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              placeholder="Type your message..."
+              className="flex-grow"
+            />
+            <Button type="submit">Send</Button>
+          </form>
+        </div>
+        <div className="w-1/4 bg-secondary p-4">
+          <ParticipantList participants={mappedParticipants} />
+          <div className="mt-4 space-y-2">
+            {isJoined && (
+              <>
+                <Button onClick={toggleAudio} className="w-full">
+                  {isAudioEnabled ? 'Mute' : 'Unmute'}
+                </Button>
+                <Button onClick={toggleAIAudio} className="w-full">
+                  {isAIAudioEnabled ? 'Disable AI Audio' : 'Enable AI Audio'}
+                </Button>
+                <Button onClick={handleRaiseHand} className="w-full">
+                  {isHandRaised ? 'Lower Hand' : 'Raise Hand'}
+                </Button>
+              </>
+            )}
+          </div>
+          <AudioCapture
+            groupId={groupId}
+            userId={userId}
+            isOnStage={participant?.is_on_stage || false}
+            isTurnActive={isTurnActive}
+            onEndTurn={handleEndTurn}
+          />
+        </div>
+      </main>
+      {(agoraError || websocketError) && (
+        <Alert variant="destructive" className="mt-4">
+          <AlertDescription>
+            {agoraError || websocketError}
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
   )
 }
+
+export default ImmersiveGroupChat
